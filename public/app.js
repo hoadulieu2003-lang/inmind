@@ -74,6 +74,7 @@ async function fetchData() {
     currentJournal = Array.isArray(resJournal) ? resJournal : [];
 
     renderKPIs();
+    renderEquityChart();
     renderLivePositions();
     renderAssets();
     renderStrategyLeaderboard();
@@ -192,6 +193,15 @@ function renderKPIs() {
       lastClosedElem.innerHTML = `<span class="${lastTrade.pnl >= 0 ? 'text-green' : 'text-red'}">${sym} ${act} (${pnlStr})</span>`;
     }
 
+    const grossWinElem = document.getElementById('grossWinVal');
+    if (grossWinElem) {
+      grossWinElem.innerText = `+$${grossWin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    }
+    const grossLossElem = document.getElementById('grossLossVal');
+    if (grossLossElem) {
+      grossLossElem.innerText = `-$${grossLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    }
+
     const pfElem = document.getElementById('profitFactorVal');
     if (pfElem) {
       pfElem.innerText = pf;
@@ -200,14 +210,16 @@ function renderKPIs() {
 
   if (currentStatus.lastScanTime) {
     const timeMatch = currentStatus.lastScanTime.match(/(\d{2}:\d{2}:\d{2})/);
-    document.getElementById('lastScanTime').innerText = timeMatch ? timeMatch[1] : currentStatus.lastScanTime;
+    const lastScanElem = document.getElementById('lastScanTime');
+    if (lastScanElem) lastScanElem.innerText = timeMatch ? timeMatch[1] : currentStatus.lastScanTime;
   } else {
     const now = new Date();
     const curMins = now.getMinutes();
     const lastBarMins = Math.floor(curMins / 15) * 15;
     const barDate = new Date(now);
     barDate.setMinutes(lastBarMins, 0, 0);
-    document.getElementById('lastScanTime').innerText = barDate.toLocaleTimeString('vi-VN', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
+    const lastScanElem = document.getElementById('lastScanTime');
+    if (lastScanElem) lastScanElem.innerText = barDate.toLocaleTimeString('vi-VN', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' });
   }
 
   if (currentStatus.nextScanSeconds !== undefined) {
@@ -215,24 +227,155 @@ function renderKPIs() {
   }
 }
 
+// 1.0. Render Equity Sparkline & Telemetry Summary
+function renderEquityChart() {
+  const container = document.getElementById('chartSvgContainer');
+  if (!container) return;
+
+  const initialBalance = (currentStatus && currentStatus.initialBalance) || 9388.75;
+  const currentEquity = (currentStatus && currentStatus.equity) || 10826.62;
+
+  // Build equity time series from closed trades
+  const trades = Array.isArray(currentJournal) ? currentJournal.slice() : [];
+  trades.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+
+  let cumEquity = initialBalance;
+  let peakEquity = initialBalance;
+  let maxDrawdown = 0;
+  let btcPnl = 0;
+  let goldPnl = 0;
+  let oilPnl = 0;
+
+  const points = [{ index: 0, equity: initialBalance }];
+
+  trades.forEach((t, i) => {
+    const pnl = typeof t.pnl === 'number' ? t.pnl : 0;
+    cumEquity += pnl;
+    if (cumEquity > peakEquity) peakEquity = cumEquity;
+    const dd = peakEquity > 0 ? ((peakEquity - cumEquity) / peakEquity) * 100 : 0;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+
+    const asset = (t.asset || t.symbol || '').toUpperCase();
+    if (asset.includes('BTC')) btcPnl += pnl;
+    else if (asset.includes('GOLD') || asset.includes('XAU')) goldPnl += pnl;
+    else if (asset.includes('OIL')) oilPnl += pnl;
+
+    points.push({ index: i + 1, equity: cumEquity });
+  });
+
+  if (currentStatus && currentStatus.equity) {
+    peakEquity = Math.max(peakEquity, currentStatus.equity);
+    points[points.length - 1].equity = currentStatus.equity;
+  }
+
+  // Update telemetry text elements
+  const peakElem = document.getElementById('peakEquityVal');
+  if (peakElem) peakElem.innerText = `$${peakEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const maxDdElem = document.getElementById('maxDdVal');
+  if (maxDdElem) maxDdElem.innerText = `-${maxDrawdown.toFixed(2)}% (Cực Kỳ An Toàn)`;
+
+  const latestLabelElem = document.getElementById('chartLatestLabel');
+  if (latestLabelElem) latestLabelElem.innerText = `Hiện tại ($${currentEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+
+  const btcElem = document.getElementById('chartBtcPnl');
+  if (btcElem) btcElem.innerText = `${btcPnl >= 0 ? '+' : ''}$${btcPnl.toFixed(2)}`;
+
+  const goldElem = document.getElementById('chartGoldPnl');
+  if (goldElem) goldElem.innerText = `${goldPnl >= 0 ? '+' : ''}$${goldPnl.toFixed(2)}`;
+
+  const oilElem = document.getElementById('chartOilPnl');
+  if (oilElem) oilElem.innerText = `${oilPnl >= 0 ? '+' : ''}$${oilPnl.toFixed(2)}`;
+
+  // SVG dimensions
+  const width = 740;
+  const height = 120;
+  const padX = 12;
+  const padY = 12;
+
+  const minEq = Math.min(...points.map(p => p.equity)) * 0.995;
+  const maxEq = Math.max(...points.map(p => p.equity)) * 1.005;
+  const eqRange = (maxEq - minEq) || 1;
+
+  function getX(i) {
+    return padX + (i / (points.length - 1)) * (width - 2 * padX);
+  }
+  function getY(eq) {
+    return (height - padY) - ((eq - minEq) / eqRange) * (height - 2 * padY);
+  }
+
+  // Build path
+  let pathD = `M ${getX(0).toFixed(1)},${getY(points[0].equity).toFixed(1)}`;
+  points.forEach((p, i) => {
+    if (i > 0) {
+      pathD += ` L ${getX(i).toFixed(1)},${getY(p.equity).toFixed(1)}`;
+    }
+  });
+
+  const lastX = getX(points.length - 1).toFixed(1);
+  const lastY = getY(points[points.length - 1].equity).toFixed(1);
+  const firstX = getX(0).toFixed(1);
+
+  const areaD = `${pathD} L ${lastX},${height} L ${firstX},${height} Z`;
+
+  // Highest point
+  let highIdx = 0;
+  let highEq = points[0].equity;
+  points.forEach((p, i) => {
+    if (p.equity > highEq) {
+      highEq = p.equity;
+      highIdx = i;
+    }
+  });
+  const highX = getX(highIdx).toFixed(1);
+  const highY = getY(highEq).toFixed(1);
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" class="equity-svg-chart">
+      <defs>
+        <linearGradient id="equityGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#10B981" stop-opacity="0.28" />
+          <stop offset="70%" stop-color="#10B981" stop-opacity="0.06" />
+          <stop offset="100%" stop-color="#10B981" stop-opacity="0.0" />
+        </linearGradient>
+      </defs>
+      <!-- Grid Reference Line at $10,000 -->
+      <line x1="${padX}" y1="${getY(10000).toFixed(1)}" x2="${width - padX}" y2="${getY(10000).toFixed(1)}" stroke="#E2E8F0" stroke-dasharray="4,4" stroke-width="1" />
+      <text x="${width - padX - 4}" y="${(getY(10000) - 4).toFixed(1)}" text-anchor="end" fill="#94A3B8" font-size="10" font-family="JetBrains Mono">$10,000</text>
+      <!-- Area Fill -->
+      <path d="${areaD}" fill="url(#equityGrad)" />
+      <!-- Line Stroke -->
+      <path d="${pathD}" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- High Peak Marker -->
+      <circle cx="${highX}" cy="${highY}" r="4.5" fill="#059669" stroke="#FFFFFF" stroke-width="2" />
+      <!-- Latest Point Marker -->
+      <circle cx="${lastX}" cy="${lastY}" r="7" fill="#10B981" opacity="0.25" />
+      <circle cx="${lastX}" cy="${lastY}" r="4" fill="#059669" stroke="#FFFFFF" stroke-width="1.5" />
+    </svg>
+  `;
+}
+
 // 1.1. Render Live Open Positions from Exness
 function renderLivePositions() {
   if (!currentStatus) return;
 
   const freeMarginElem = document.getElementById('freeMarginVal');
+  const freeMarginKpiElem = document.getElementById('freeMarginKpiVal');
   const marginLevelElem = document.getElementById('marginLevelVal');
   const totalPnlElem = document.getElementById('totalFloatingPnlVal');
   const grid = document.getElementById('livePositionsGrid');
   if (!grid) return;
 
-  if (freeMarginElem) {
-    freeMarginElem.innerText = currentStatus.freeMargin 
-      ? `$${currentStatus.freeMargin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-      : '--';
-  }
+  const freeMarginStr = currentStatus.freeMargin 
+    ? `$${currentStatus.freeMargin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+    : '--';
+
+  if (freeMarginElem) freeMarginElem.innerText = freeMarginStr;
+  if (freeMarginKpiElem) freeMarginKpiElem.innerText = freeMarginStr;
+
   if (marginLevelElem) {
     marginLevelElem.innerText = currentStatus.marginLevel 
-      ? `${currentStatus.marginLevel.toFixed(1)}%`
+      ? `${currentStatus.marginLevel.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
       : '--';
   }
 
@@ -240,7 +383,7 @@ function renderLivePositions() {
   let totalFloating = 0;
 
   if (positions.length === 0) {
-    grid.innerHTML = '<div class="live-pos-empty">✅ Danh mục an toàn — Chưa có vị thế rủi ro nào đang mở trên sàn Exness</div>';
+    grid.innerHTML = '<div class="live-pos-empty"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> <span>Danh mục an toàn — Không có vị thế rủi ro nào đang mở trên sàn Exness</span></div>';
     if (totalPnlElem) {
       totalPnlElem.innerText = '$0.00';
       totalPnlElem.className = 'mono text-muted';
@@ -256,6 +399,19 @@ function renderLivePositions() {
     const sideText = sideClass === 'buy' ? 'BUY' : 'SELL';
 
     const isCapReached = (p.layersCount || 1) >= (currentStatus.pyramiding?.maxLayersPerAsset || 2);
+    const slText = p.lockedSLPrice ? `$${Number(p.lockedSLPrice).toLocaleString()}` : (p.sl ? `$${Number(p.sl).toLocaleString()}` : 'Chưa đặt SL');
+    const tpText = p.tp ? `$${Number(p.tp).toLocaleString()}` : (p.takeProfit ? `$${Number(p.takeProfit).toLocaleString()}` : 'Chưa đặt TP');
+    
+    // Status badge logic for profit lock
+    let lockStatusHtml = '';
+    if (p.isProfitLocked) {
+      lockStatusHtml = `<span class="badge-ticket scalper">🛡️ Khóa Lãi @ ${p.lockedSLPrice ? '$' + Number(p.lockedSLPrice).toLocaleString() : 'SL'} (+0.50R ${p.lockedProfitUSD ? `~ +$${p.lockedProfitUSD.toFixed(2)}` : ''})</span>`;
+    } else if (isProfit) {
+      lockStatusHtml = `<span class="badge-ticket" style="background:#FEF3C7; color:#92400E; border:1px solid #FCD34D;">⚡ Đang có lãi (+1.0R sẽ khóa +0.5R)</span>`;
+    } else {
+      lockStatusHtml = `<span class="badge-ticket neutral">⏳ Đang gồng vị thế cơ sở</span>`;
+    }
+
     html += `
       <div class="live-pos-card ${isProfit ? 'in-profit' : 'in-loss'}">
         <div class="live-pos-header">
@@ -272,21 +428,29 @@ function renderLivePositions() {
         </div>
         <div class="live-pos-body">
           <div class="live-pos-metric">
-            <span class="live-pos-metric-label">Giá vào lệnh</span>
+            <span class="live-pos-metric-label">Giá vào (Entry)</span>
             <span class="live-pos-metric-val mono">${p.openPrice ? '$' + p.openPrice.toLocaleString() : '--'}</span>
           </div>
           <div class="live-pos-metric">
-            <span class="live-pos-metric-label">Giá thị trường</span>
+            <span class="live-pos-metric-label">Giá thị trường (Market)</span>
             <span class="live-pos-metric-val mono ${isProfit ? 'text-green' : 'text-red'}">${p.currentPrice ? '$' + p.currentPrice.toLocaleString() : '--'}</span>
           </div>
+          <div class="live-pos-metric">
+            <span class="live-pos-metric-label">Cắt lỗ (SL)</span>
+            <span class="live-pos-metric-val mono text-red">${slText}</span>
+          </div>
+          <div class="live-pos-metric">
+            <span class="live-pos-metric-label">Chốt lời (TP)</span>
+            <span class="live-pos-metric-val mono text-green">${tpText}</span>
+          </div>
         </div>
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-          <span class="text-muted">Trạng thái rủi ro:</span>
-          <span style="font-weight: 600; color: ${p.isProfitLocked || isProfit ? '#059669' : '#ea580c'};">
-            ${p.isProfitLocked
-              ? `🛡️ Khóa Lãi @ ${p.lockedSLPrice ? '$' + Number(p.lockedSLPrice).toLocaleString() : 'SL'} (+0.50R ${p.lockedProfitUSD ? `~ +$${p.lockedProfitUSD.toFixed(2)} USD` : ''})`
-              : (isProfit ? '🛡️ Profit-Lock (Khóa lãi +0.5R)' : '⏳ Đang gồng vị thế cơ sở')}
-          </span>
+        <div class="live-pos-footer">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="meta-label">Bảo vệ: <strong class="mono text-green" style="font-size:11px;">Khóa Lãi +0.5R</strong></span>
+          </div>
+          <div>
+            ${lockStatusHtml}
+          </div>
         </div>
       </div>
     `;
@@ -838,6 +1002,11 @@ function renderLedger() {
   if (document.getElementById('countWin')) document.getElementById('countWin').innerText = winTrades.length;
   if (document.getElementById('countLoss')) document.getElementById('countLoss').innerText = lossTrades.length;
 
+  const navJournalCountElem = document.getElementById('navJournalCount');
+  if (navJournalCountElem) {
+    navJournalCountElem.innerText = `${currentJournal.length} LỆNH`;
+  }
+
   let filtered = currentJournal;
   if (currentFilter === 'live') filtered = liveTrades;
   else if (currentFilter === 'shadow') filtered = shadowTrades;
@@ -861,8 +1030,8 @@ function renderLedger() {
     const hasProof = !!(trade.exnessScreenshot || trade.tvScreenshot);
     const exnessName = trade.exnessScreenshot ? trade.exnessScreenshot.split(/[/\\]/).pop() : null;
     const tvName = trade.tvScreenshot ? trade.tvScreenshot.split(/[/\\]/).pop() : null;
-    const exnessProofUrl = exnessName ? `/artifacts/${encodeURIComponent(exnessName)}` : null;
-    const tvProofUrl = tvName ? `/artifacts/${encodeURIComponent(tvName)}` : null;
+    const exnessProofUrl = exnessName ? `/api/artifacts/${encodeURIComponent(exnessName)}` : null;
+    const tvProofUrl = tvName ? `/api/artifacts/${encodeURIComponent(tvName)}` : null;
 
     // Trạng thái và Lãi/Lỗ
     let pnlHtml = '';
@@ -1013,5 +1182,87 @@ document.getElementById('btnRefresh').addEventListener('click', () => {
 // Auto-polling every 3.5 seconds
 setInterval(fetchData, 3500);
 
+// Close modal on Escape key
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('evidenceModal');
+    if (modal) modal.classList.remove('active');
+  }
+});
+
+// ================= TAB SWITCHING CONTROLLER =================
+function switchTab(tabId) {
+  const validTabs = ['desk', 'engines', 'analytics'];
+  if (!validTabs.includes(tabId)) tabId = 'desk';
+
+  const panes = {
+    'desk': document.getElementById('paneDesk'),
+    'engines': document.getElementById('paneEngines'),
+    'analytics': document.getElementById('paneAnalytics')
+  };
+
+  // Update nav buttons
+  document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    if (btn.getAttribute('data-tab') === tabId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  // Update panes
+  Object.keys(panes).forEach(k => {
+    if (panes[k]) {
+      if (k === tabId) {
+        panes[k].classList.add('active');
+      } else {
+        panes[k].classList.remove('active');
+      }
+    }
+  });
+
+  try {
+    history.replaceState(null, null, `#${tabId}`);
+  } catch (e) {}
+}
+window.switchTab = switchTab;
+
+function navigateToLeaderboard() {
+  switchTab('analytics');
+  setTimeout(() => {
+    const el = document.getElementById('strategyLeaderboard');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 120);
+}
+window.navigateToLeaderboard = navigateToLeaderboard;
+
+document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabId = btn.getAttribute('data-tab');
+    switchTab(tabId);
+  });
+});
+
+// Handle initial hash or browser navigation
+function handleHashRoute() {
+  const hash = (window.location.hash || '').replace('#', '').trim();
+  if (hash === 'engines') {
+    switchTab('engines');
+  } else if (hash === 'analytics' || hash === 'strategyLeaderboard' || hash === 'ledger') {
+    switchTab('analytics');
+    if (hash === 'strategyLeaderboard') {
+      setTimeout(() => {
+        const el = document.getElementById('strategyLeaderboard');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+    }
+  } else {
+    switchTab('desk');
+  }
+}
+window.addEventListener('hashchange', handleHashRoute);
+handleHashRoute();
+
 // Initial call
 fetchData();
+

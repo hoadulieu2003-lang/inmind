@@ -378,8 +378,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   // 3. API: Artifact Evidence Images
-  if (pathname.startsWith('/api/artifacts/')) {
-    const rawFile = pathname.replace('/api/artifacts/', '');
+  if (pathname.startsWith('/api/artifacts/') || pathname.startsWith('/artifacts/')) {
+    const rawFile = pathname.replace(/^\/(?:api\/)?artifacts\//, '');
     const cleanFileName = path.basename(decodeURIComponent(rawFile));
     const targetPath = resolveArtifactPath(cleanFileName);
 
