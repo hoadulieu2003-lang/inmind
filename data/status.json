@@ -1,0 +1,117 @@
+{
+  "daemonActive": true,
+  "lastHeartbeatTime": 1789474208905,
+  "lastHeartbeatStr": "19:10:08",
+  "equity": 9469.54,
+  "balance": 9427.32,
+  "initialBalance": 9388.75,
+  "netPnL": 80.79,
+  "roi": 0.86,
+  "openPositionsCount": 3,
+  "openSymbols": [
+    "BTC",
+    "USOIL"
+  ],
+  "positionsList": [
+    {
+      "symbol": "BTC",
+      "side": "Sell",
+      "lot": 1,
+      "openPrice": 76862.96,
+      "currentPrice": 76824.62,
+      "floatingPnl": 38.34,
+      "ticketCount": 2,
+      "layersCount": 1
+    },
+    {
+      "symbol": "USOIL",
+      "side": "Sell",
+      "lot": 0.01,
+      "openPrice": 98.942,
+      "currentPrice": 98.554,
+      "floatingPnl": 3.88,
+      "ticketCount": 1,
+      "layersCount": 1
+    }
+  ],
+  "freeMargin": 9276.89,
+  "marginLevel": 4915.41,
+  "lastScanTime": "19:00:20",
+  "nextScanSeconds": 296,
+  "twinOrders": {
+    "enabled": true,
+    "scalperRR": 1,
+    "runnerRR": 1.5,
+    "splitRatio": [
+      0.5,
+      0.5
+    ]
+  },
+  "tieredRisk": {
+    "enabled": true,
+    "rank1Strategy": "ENGINE_DELTA",
+    "rank1RiskPercent": 5,
+    "rank1AssetWhitelist": [
+      "BTCUSD",
+      "BTC"
+    ],
+    "rank1SecondaryCapPercent": 2,
+    "rank2And3Strategies": [
+      "ENGINE_BETA",
+      "ENGINE_THETA"
+    ],
+    "rank2And3RiskPercent": 2,
+    "baseRiskPercent": 1,
+    "topRanksAllowed": [
+      1,
+      2,
+      3
+    ],
+    "topRankRiskPercent": 5,
+    "topStrategies": [
+      "ENGINE_DELTA",
+      "ENGINE_BETA",
+      "ENGINE_THETA"
+    ]
+  },
+  "activeEngines": {
+    "GOLD": [
+      "ENGINE_DELTA",
+      "ENGINE_BETA",
+      "ENGINE_ALPHA"
+    ],
+    "USOIL": [
+      "ENGINE_DELTA",
+      "ENGINE_EPSILON",
+      "ENGINE_BETA",
+      "ENGINE_ALPHA"
+    ],
+    "BTCUSD": [
+      "ENGINE_DELTA",
+      "ENGINE_BETA",
+      "ENGINE_ZETA",
+      "ENGINE_KAPPA",
+      "ENGINE_ALPHA"
+    ],
+    "GBPUSD": [
+      "ENGINE_EPSILON",
+      "ENGINE_BETA",
+      "ENGINE_ALPHA"
+    ],
+    "US500": [
+      "ENGINE_THETA",
+      "ENGINE_DELTA",
+      "ENGINE_ALPHA"
+    ]
+  },
+  "maxTotalPositions": 10,
+  "pyramiding": {
+    "enabled": true,
+    "maxLayersPerAsset": 2,
+    "maxTotalPositions": 10,
+    "requireBreakevenBeforeScaleIn": true,
+    "requireDifferentEngine": false
+  },
+  "maxDailyLossPercent": 20,
+  "assets": {}
+}

@@ -1,0 +1,11 @@
+.vercel
+.env*
+node_modules/
+__pycache__/
+*.log
+*.png
+data/trade.db-shm
+data/trade.db-wal
+data/trade.db-journal
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-09-13T22:02:02.828Z",
+  "exitSuccess": false,
+  "before": {
+    "balance": "N/A",
+    "equity": "N/A",
+    "activePositions": [
+      "XAU/USD Mua 0.2 ⁦4,346.782⁩ 4,349.302 4,354.380 4,342.600 5089096571 18:14:50 11 thg 9 0 +50.40"
+    ]
+  },
+  "after": {
+    "balance": "N/A",
+    "equity": "N/A"
+  }
+}

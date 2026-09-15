@@ -1,0 +1,10 @@
+{
+  "name": "antigravity-quant-terminal",
+  "version": "1.0.0",
+  "description": "Antigravity Quant Multi-Engine Trading Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}

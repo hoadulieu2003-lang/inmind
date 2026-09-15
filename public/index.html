@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity Quant — Multi-Engine Trading Ecosystem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- TOP NAVIGATION / SYSTEM PULSE -->
+  <header class="top-nav">
+    <div class="nav-brand">
+      <div class="brand-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">ANTIGRAVITY QUANT</div>
+        <div class="brand-subtitle">MULTI-ENGINE TRADING DESK & TELEMETRY</div>
+      </div>
+    </div>
+
+    <div class="nav-center">
+      <div class="pulse-pill" id="daemonPulsePill">
+        <span class="pulse-beacon" id="daemonBeacon"></span>
+        <span class="pulse-label" id="daemonStatusLabel">DAEMON MONITOR ACTIVE</span>
+      </div>
+      <div class="timer-pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span>Quét M15 kế tiếp:</span>
+        <strong id="countdownTimer" class="mono">--:--</strong>
+      </div>
+    </div>
+
+    <div class="nav-right">
+      <div class="live-clock mono" id="liveClock">00:00:00 (UTC+7)</div>
+      <button class="btn-refresh" id="btnRefresh" title="Làm mới dữ liệu">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- 1. ACCOUNT HEALTH & KPI RIBBON -->
+    <section class="kpi-grid">
+      <div class="kpi-card highlight">
+        <div class="kpi-header">
+          <span class="kpi-title">VỐN TÀI KHOẢN (EQUITY)</span>
+          <span class="badge-tag live">EXNESS DEMO</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value mono" id="equityVal">$9,525.66</div>
+          <div class="kpi-diff positive" id="roiVal">+1.46%</div>
+        </div>
+        <div class="kpi-footer">
+          <span>Số dư chốt: <strong class="mono" id="balanceVal">--</strong></span>
+          <span>Lãi ròng: <strong class="mono text-green" id="netPnlVal">--</strong></span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">VỊ THẾ ĐỒNG THỜI (HEAT)</span>
+          <span class="badge-tag" id="heatRatioBadge">0 / 6 ĐỒNG THỜI</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value mono" id="activePositionsCount">0 / 6</div>
+          <div class="heat-bar-wrapper">
+            <div class="heat-bar" id="heatBar" style="width: 0%;"></div>
+          </div>
+        </div>
+        <div class="kpi-footer">
+          <span>Đang mở: <strong class="mono text-blue" id="openSymbolsList">Không có vị thế</strong></span>
+          <span>Tối đa cùng lúc: <strong class="mono" id="maxPositionsText">10 lệnh (Không giới hạn/ngày)</strong></span>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">TỈ LỆ THẮNG THỰC TẾ (WINRATE)</span>
+          <span class="badge-tag positive" id="winRateBadge">LIVE EXNESS</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value mono text-green" id="winRateVal">75.0%</div>
+          <div class="mini-stat mono" id="winLossCount">3 THẮNG / 1 THUA</div>
+        </div>
+        <div class="kpi-footer">
+          <span>Lệnh vừa đóng: <strong class="mono" id="lastClosedTrade">XAU/USD Sell (-$15.40)</strong></span>
+          <span>Hệ số PF: <strong class="mono" id="profitFactorVal">31.4</strong></span>
+        </div>
+        <div style="border-top: 1px dashed var(--border-light); padding-top: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+          <span id="kpiBestStrat">🏆 Tốt nhất: <strong class="text-green">UT Bot (+$351.60)</strong></span>
+          <a href="#strategyLeaderboard" class="mini-rank-link">Bảng xếp hạng ➔</a>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">TRẠNG THÁI NẾN (M15 BAR)</span>
+          <span class="badge-tag neutral">CHỐT T-1 TẠI GIÂY 05</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value mono" id="lastScanTime">--:--:--</div>
+          <span class="status-indicator-inline text-green">ĐÃ ĐỒNG BỘ</span>
+        </div>
+        <div class="kpi-footer">
+          <span>Chống Repainting: <strong class="text-green">100% Khóa</strong></span>
+          <span>Symbol Guard: <strong class="text-green">Model API</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1.1. LIVE OPEN POSITIONS MONITOR (CẬP NHẬT THỜI GIAN THỰC LIÊN TỤC TỪ SÀN EXNESS) -->
+    <section class="section-container" id="livePositionsSection" style="margin-bottom: 24px;">
+      <div class="section-header" style="border-bottom: 1px solid var(--border-light); padding-bottom: 12px; margin-bottom: 16px;">
+        <div class="section-title-group">
+          <div class="pulse-beacon" style="background: var(--green-main); width: 10px; height: 10px;"></div>
+          <h2 class="section-title" style="font-size: 14px; font-weight: 800; letter-spacing: 0.04em;">VỊ THẾ ĐANG MỞ THỜI GIAN THỰC (LIVE OPEN POSITIONS)</h2>
+          <span class="badge-tag live" id="liveSyncBadge">ĐỒNG BỘ REALTIME 3.5S</span>
+        </div>
+        <div class="live-positions-meta" id="livePositionsMeta" style="font-size: 12px; color: var(--text-secondary); display: flex; gap: 14px; align-items: center;">
+          <span>Ký quỹ tự do: <strong class="mono text-blue" id="freeMarginVal">--</strong></span>
+          <span>•</span>
+          <span>Mức ký quỹ: <strong class="mono text-green" id="marginLevelVal">--</strong></span>
+          <span>•</span>
+          <span>Lãi thả nổi: <strong class="mono" id="totalFloatingPnlVal">--</strong></span>
+        </div>
+      </div>
+      <div id="livePositionsGrid" class="live-positions-grid">
+        <!-- Rendered dynamically via app.js -->
+      </div>
+    </section>
+
+    <!-- 2. STRATEGY ENGINE MATRIX -->
+    <section class="section-container">
+      <div class="section-header">
+        <div class="section-title-group">
+          <div class="section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </div>
+          <div>
+            <h2 class="section-heading">HỆ THỐNG ĐỘNG CƠ CHIẾN LƯỢC THỰC CHIẾN LIVE (OFFICIAL LIVE DESK)</h2>
+            <p class="section-desc">Hệ sinh thái giao dịch đa thuật toán vận hành độc lập trên nến M15 đã chốt — 100% Khớp Lệnh Thật Exness</p>
+          </div>
+        </div>
+        <span class="section-meta mono">ĐỘNG CƠ VÔ ĐỊCH & CẶP LỆNH SONG SINH</span>
+      </div>
+
+      <!-- Twin-Ticket Architecture & Tiered Risk Banner -->
+      <div style="background: linear-gradient(90deg, #FEF2F2 0%, #FFFBEB 50%, #EFF6FF 100%); border: 1px solid #FECACA; border-radius: 8px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="background: #DC2626; color: #fff; width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">👑</div>
+          <div>
+            <div style="font-weight: 800; font-size: 13px; color: #0F172A;">KIẾN TRÚC CẶP LỆNH SONG SINH & PHÂN TẦNG RỦI RO ĐỘC QUYỀN (TWIN-TICKET & 5.0% TIERED RISK)</div>
+            <div style="font-size: 11px; color: #475569;">👑 Hạng 1 (ENGINE DELTA): 5.0% Rủi ro (BTCUSD) | 2.0% Rủi ro (Vàng/Dầu/Khác) | ⚡ Top 2-3: 2.0% Rủi ro | 🏛️ US500: Chỉ giao dịch 19:30 - 23:30 VN</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span class="badge-ticket" style="background:#FEE2E2; color:#991B1B; border:1px solid #F87171; padding: 4px 10px; font-size: 11px; font-weight:800;">👑 HẠNG 1: 5.0% (BTCUSD) | 2.0% (VÀNG / KHÁC)</span>
+          <span class="badge-ticket" style="background:#FEF3C7; color:#B45309; border:1px solid #FCD34D; padding: 4px 10px; font-size: 11px; font-weight:700;">⚡ TOP 2-3: 2.0% RỦI RO (Scalper 1.0% + Runner 1.0%)</span>
+          <span class="badge-ticket" style="background:#E0E7FF; color:#3730A3; border:1px solid #C7D2FE; padding: 4px 10px; font-size: 11px; font-weight:700;">🏛️ US500: KHÓA PHIÊN Á (19:30 - 23:30 VN)</span>
+        </div>
+      </div>
+
+      <div class="engines-grid">
+        <!-- Engine Theta (EMA 9/21 Pullback) -->
+        <div class="engine-card active-live">
+          <div class="engine-top">
+            <div class="engine-badge live">ENGINE THETA (LIVE)</div>
+            <span class="engine-type mono">TREND PULLBACK</span>
+          </div>
+          <h3 class="engine-name">EMA 9/21 Pullback + EMA 200</h3>
+          <p class="engine-desc">Bắt điểm hồi nến M15 chạm/nhúng vào vùng EMA 9-21 và bật lại theo xu hướng EMA 200 vĩ mô.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Trạng thái</span>
+              <strong class="metric-val text-green">Vô địch Vàng M15</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 1.5</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">GOLD (XAU/USD)</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Epsilon (Asian Range Sweep) -->
+        <div class="engine-card active-live">
+          <div class="engine-top">
+            <div class="engine-badge live">ENGINE EPSILON (LIVE)</div>
+            <span class="engine-type mono">LIQUIDITY SWEEP</span>
+          </div>
+          <h3 class="engine-name">Asian Range Sweep (London Open)</h3>
+          <p class="engine-desc">Xác định High/Low phiên Á (00:00-08:00 UTC), nến London quét râu vượt biên rồi rút râu ngược lại gom thanh khoản.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Trạng thái</span>
+              <strong class="metric-val text-green">Vô địch Dầu M15</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 1.5</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">USOIL (Dầu WTI)</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Beta (CCI Pullback) -->
+        <div class="engine-card active-live">
+          <div class="engine-top">
+            <div class="engine-badge live">ENGINE BETA (LIVE)</div>
+            <span class="engine-type mono">MEAN REVERSION</span>
+          </div>
+          <h3 class="engine-name">CCI(20) Pullback + EMA 200</h3>
+          <p class="engine-desc">Bắt điểm hồi phục giá trị trung bình trong xu hướng. Mua khi CCI vượt -100 từ vùng quá bán, Bán khi CCI giảm dưới 100.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Trạng thái</span>
+              <strong class="metric-val text-green">Đa năng cả 3 tài sản</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 1.5</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">GOLD, USOIL, BTC</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Kappa (Volume PA) -->
+        <div class="engine-card active-live">
+          <div class="engine-top">
+            <div class="engine-badge live">ENGINE KAPPA (LIVE)</div>
+            <span class="engine-type mono">VOLUME PRICE ACTION</span>
+          </div>
+          <h3 class="engine-name">Volume PA + Nến Rút Chân</h3>
+          <p class="engine-desc">Nhận diện nỗ lực gom hàng của dòng tiền lớn qua khối lượng đột biến (Volume > 1.25x SMA20) và nến từ chối giá.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Trạng thái</span>
+              <strong class="metric-val text-green">Tối ưu Crypto M15</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 1.5</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">BTCUSD</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Delta (HalfTrend + ADX) -->
+        <div class="engine-card active-live">
+          <div class="engine-top">
+            <div class="engine-badge live">ENGINE DELTA (LIVE)</div>
+            <span class="engine-type mono">HALFTREND + ADX</span>
+          </div>
+          <h3 class="engine-name">HalfTrend (10, 2) + ADX > 28 (Vàng) / 22 (BTC)</h3>
+          <p class="engine-desc">Bắt trọn xu hướng bùng nổ. Lọc nhiễu Sideway phiên Á tuyệt đối bằng ADX > 28 trên Vàng và ADX > 22 trên BTC.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Trạng thái</span>
+              <strong class="metric-val text-green">Vô địch Vàng M15 (PF 2.78)</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 1.5</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">GOLD (XAU/USD)</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Zeta (SuperTrend + RSI Pullback) -->
+        <div class="engine-card active-live">
+          <div class="engine-top">
+            <div class="engine-badge live">ENGINE ZETA (LIVE)</div>
+            <span class="engine-type mono">SUPERTREND + RSI</span>
+          </div>
+          <h3 class="engine-name">SuperTrend (10, 3) + RSI(14) Pullback</h3>
+          <p class="engine-desc">Bắt sóng hồi nhịp nhanh Crypto BTC. Tận dụng dải SuperTrend thuận xu hướng và RSI (38-48 Mua / 52-62 Bán) để tối ưu điểm vào lệnh.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Trạng thái</span>
+              <strong class="metric-val text-green">Vô địch BTC M15 (WR 65.0%)</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 1.5</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">BTCUSD</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2.5 STRATEGY PERFORMANCE LEADERBOARD & AUDIT -->
+    <section class="section-container" id="strategyLeaderboard">
+      <div class="section-header">
+        <div class="section-title-group">
+          <div class="section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"></circle><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline></svg>
+          </div>
+          <div>
+            <h2 class="section-heading">BẢNG XẾP HẠNG HIỆU SUẤT & BỘ LỌC CHIẾN LƯỢC</h2>
+            <p class="section-desc">Đo lường định lượng thực tế: Phân định chiến lược Vô địch vs Chiến lược Yếu kém để tối ưu và loại bỏ kịp thời</p>
+          </div>
+        </div>
+        <div class="ledger-filters" style="margin-bottom: 0;">
+          <button class="filter-btn active" data-strat-filter="all">Tất cả (<span id="countStratAll">0</span>)</button>
+          <button class="filter-btn" data-strat-filter="live">Live Exness (<span id="countStratLive">0</span>)</button>
+        </div>
+      </div>
+
+      <!-- 3 Spotlight Cards: Best, Worst, Potential -->
+      <div class="spotlight-grid" id="spotlightGrid">
+        <!-- Rendered dynamically via JS -->
+      </div>
+
+      <!-- Detailed Strategy Table -->
+      <div class="table-responsive">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>HẠNG</th>
+              <th>CHIẾN LƯỢC & THUẬT TOÁN</th>
+              <th>MÔ HÌNH</th>
+              <th>TÀI SẢN ÁP DỤNG</th>
+              <th>TỔNG LỆNH</th>
+              <th>THẮNG / THUA</th>
+              <th>TỈ LỆ THẮNG (WINRATE)</th>
+              <th>LÃI / LỖ RÒNG ($ / R)</th>
+              <th>PROFIT FACTOR</th>
+              <th>ĐÁNH GIÁ & KHUYẾN NGHỊ</th>
+            </tr>
+          </thead>
+          <tbody id="strategyTableBody">
+            <!-- Rows injected via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. MULTI-ASSET REAL-TIME RADAR -->
+    <section class="section-container">
+      <div class="section-header">
+        <div class="section-title-group">
+          <div class="section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m9.17 14.83-4.24 4.24"></path></svg>
+          </div>
+          <div>
+            <h2 class="section-heading">RADA GIÁM SÁT 3 CẶP TÀI SẢN THỜI GIAN THỰC</h2>
+            <p class="section-desc">Cập nhật chỉ báo kỹ thuật, điểm nén lò xo và biên an toàn danh mục</p>
+          </div>
+        </div>
+        <span class="section-meta mono">3 CẶP GIÁM SÁT LIÊN TỤC</span>
+      </div>
+
+      <div class="assets-grid" id="assetsGrid">
+        <!-- Asset cards rendered dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- 4. TRADE LEDGER & DUAL-EVIDENCE VIEWER -->
+    <section class="section-container">
+      <div class="section-header">
+        <div class="section-title-group">
+          <div class="section-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </div>
+          <div>
+            <h2 class="section-heading">SỔ CÁI NHẬT KÝ LỆNH & THƯ VIỆN BẰNG CHỨNG ẢNH KÉP</h2>
+            <p class="section-desc">Minh chứng thời gian thực: Cặp Lệnh Song Sinh [SCALPER] & [RUNNER], Ảnh khớp lệnh sàn Exness & Ảnh nến TradingView</p>
+          </div>
+        </div>
+        
+        <div class="ledger-filters">
+          <button class="filter-btn active" data-filter="all">Tất cả (<span id="countAll">0</span>)</button>
+          <button class="filter-btn" data-filter="scalper">⚡ Scalper 1.0 (<span id="countScalper">0</span>)</button>
+          <button class="filter-btn" data-filter="runner">🚀 Runner 1.5 (<span id="countRunner">0</span>)</button>
+          <button class="filter-btn" data-filter="win">🟢 Thắng (<span id="countWin">0</span>)</button>
+          <button class="filter-btn" data-filter="loss">🔴 Thua (<span id="countLoss">0</span>)</button>
+          <button class="filter-btn" data-filter="live">Live Exness (<span id="countLive">0</span>)</button>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>THỜI GIAN</th>
+              <th>TÀI SẢN</th>
+              <th>ĐỘNG CƠ CHIẾN LƯỢC</th>
+              <th>HÀNH ĐỘNG</th>
+              <th>GIÁ VÀO (ENTRY)</th>
+              <th>CẮT LỖ (SL)</th>
+              <th>CHỐT LỜI (TP)</th>
+              <th>KHỐI LƯỢNG</th>
+              <th>RỦI RO</th>
+              <th>KẾT QUẢ & LÃI/LỖ</th>
+              <th>BẰNG CHỨNG HÌNH ẢNH</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerTableBody">
+            <!-- Rows injected via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL VIEWER FOR DUAL-EVIDENCE SCREENSHOTS -->
+  <div class="modal-backdrop" id="evidenceModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <div class="modal-tag" id="modalTag">BẰNG CHỨNG KHỚP LỆNH KÉP</div>
+          <h3 class="modal-title" id="modalTitle">BTCUSD BUY 0.23 LOT</h3>
+        </div>
+        <button class="btn-close-modal" id="btnCloseModal">&times;</button>
+      </div>
+      <div class="modal-tabs">
+        <button class="modal-tab-btn active" id="tabBtnExness">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          1. Ảnh Sàn Exness (Khớp lệnh, SL, TP)
+        </button>
+        <button class="modal-tab-btn" id="tabBtnTV">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+          2. Ảnh TradingView (Nến M15 & Chỉ báo)
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="image-frame active" id="frameExness">
+          <img src="" alt="Exness Proof" id="modalExnessImg" class="proof-image">
+          <div class="image-caption">Minh chứng khớp lệnh Exness Web Terminal với SL & TP được điền chính xác</div>
+        </div>
+        <div class="image-frame" id="frameTV">
+          <img src="" alt="TradingView Proof" id="modalTvImg" class="proof-image">
+          <div class="image-caption">Biểu đồ TradingView ghi nhận nến đóng T-1 xác nhận tín hiệu hợp lệ</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="footer-left">
+      <span>Antigravity Autonomous Multi-Agent Trading System</span>
+      <span class="bullet">•</span>
+      <span>Hợp đồng Kỹ thuật: <strong>AGENTS.md</strong></span>
+    </div>
+    <div class="footer-right">
+      <span>Chủ quản: <strong>Anh (Lead Architect)</strong></span>
+      <span class="bullet">•</span>
+      <span>Vận hành: <strong>Em (Senior Engineering Agent)</strong></span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
