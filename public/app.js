@@ -719,6 +719,15 @@ function renderStrategyLeaderboard() {
           </span>
         </div>
       `;
+    } else if (s.key.includes('LAMBDA') || s.key.includes('OMEGA') || s.key.includes('COUNTER')) {
+      rankBadge = `
+        <span class="rank-badge" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE;">⚡ LỆCH XU HƯỚNG</span>
+        <div style="margin-top: 4px;">
+          <span class="badge-tag" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE; font-size:10px; font-weight:700; display:inline-flex; align-items:center; gap:2px; padding:2px 6px; white-space:nowrap;">
+            ⚡ Rủi ro: 0.5% Vốn
+          </span>
+        </div>
+      `;
     } else {
       rankBadge = `
         <span class="rank-badge ${s.netPnl < 0 ? 'rank-warn' : ''}">#${rank}</span>
@@ -733,7 +742,10 @@ function renderStrategyLeaderboard() {
     // Phân loại & Đánh giá
     let statusPill = '';
     let recommendation = '';
-    if (rank === 1 && s.netPnl > 0) {
+    if (s.key.includes('LAMBDA') || s.key.includes('OMEGA') || s.key.includes('COUNTER')) {
+      statusPill = `<span class="status-pill" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE;">⚡ LỆCH XU HƯỚNG</span>`;
+      recommendation = `<strong class="text-blue">⚡ Đánh lệch xu hướng (0.5% Vốn)</strong> • Bắt đỉnh/đáy kiệt sức`;
+    } else if (rank === 1 && s.netPnl > 0) {
       statusPill = `<span class="status-pill champion">👑 QUÂN VƯƠNG</span>`;
       recommendation = `<strong class="text-green">👑 Quyền nâng 5.0% Vốn (BTCUSD) | Khóa 2.0% Vốn (Vàng/Khác)</strong> • Động cơ số 1`;
     } else if (isTopTier && s.netPnl > 0) {

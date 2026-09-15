@@ -59,10 +59,19 @@
       ]
     }
   },
+  "counterTrend": {
+    "enabled": true,
+    "mode": "LIVE",
+    "riskPercent": 0.5,
+    "maxAdxThreshold": 28.0,
+    "minRiskRewardRatio": 1.5,
+    "engines": ["ENGINE_LAMBDA", "ENGINE_OMEGA"],
+    "assets": ["GOLD", "BTCUSD", "USOIL"]
+  },
   "activeEngines": {
-    "GOLD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA"],
-    "USOIL": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA"],
-    "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ZETA", "ENGINE_KAPPA", "ENGINE_ALPHA"],
+    "GOLD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
+    "USOIL": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
+    "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ZETA", "ENGINE_KAPPA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "GBPUSD": ["ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA"],
     "US500": ["ENGINE_THETA", "ENGINE_DELTA", "ENGINE_ALPHA"]
   },

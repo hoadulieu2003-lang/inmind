@@ -164,6 +164,7 @@
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <span class="badge-ticket" style="background:#FEE2E2; color:#991B1B; border:1px solid #F87171; padding: 4px 10px; font-size: 11px; font-weight:800;">👑 HẠNG 1: 5.0% (BTCUSD) | 2.0% (VÀNG / KHÁC)</span>
           <span class="badge-ticket" style="background:#FEF3C7; color:#B45309; border:1px solid #FCD34D; padding: 4px 10px; font-size: 11px; font-weight:700;">⚡ TOP 2-3: 2.0% RỦI RO (Scalper 1.0% + Runner 1.0%)</span>
+          <span class="badge-ticket" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE; padding: 4px 10px; font-size: 11px; font-weight:700;">⚡ ĐÁNH LỆCH XU HƯỚNG: 0.5% (ENGINE LAMBDA, OMEGA)</span>
           <span class="badge-ticket" style="background:#E0E7FF; color:#3730A3; border:1px solid #C7D2FE; padding: 4px 10px; font-size: 11px; font-weight:700;">🏛️ US500: KHÓA PHIÊN Á (19:30 - 23:30 VN)</span>
         </div>
       </div>
@@ -309,6 +310,54 @@
             <div class="engine-metric-item">
               <span class="metric-label">Tài sản</span>
               <strong class="metric-val mono">BTCUSD</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Lambda (RSI Divergence + BB 2.5 SD Extreme Fade - Counter-Trend) -->
+        <div class="engine-card active-live" style="border-left: 3px solid #6366F1;">
+          <div class="engine-top">
+            <div class="engine-badge live" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE;">ENGINE LAMBDA (COUNTER-TREND LIVE)</div>
+            <span class="engine-type mono" style="color:#6366F1;">MEAN REVERSION</span>
+          </div>
+          <h3 class="engine-name">RSI Divergence + BB(20, 2.5) Extreme Fade</h3>
+          <p class="engine-desc">Đánh lệch xu hướng khi nến M15 bung ngoài dải BB 2.5 SD kết hợp phân kỳ RSI(14). Bắt đỉnh/đáy kiệt sức sóng, bảo vệ bằng ADX &le; 28.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Rủi ro vốn</span>
+              <strong class="metric-val mono text-blue">0.5% Vốn (Demo)</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 2.0</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">GOLD, BTC, USOIL</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Omega (ICT / SMC Liquidity Sweep Fade - Counter-Trend) -->
+        <div class="engine-card active-live" style="border-left: 3px solid #8B5CF6;">
+          <div class="engine-top">
+            <div class="engine-badge live" style="background:#F5F3FF; color:#6D28D9; border:1px solid #DDD6FE;">ENGINE OMEGA (COUNTER-TREND LIVE)</div>
+            <span class="engine-type mono" style="color:#8B5CF6;">LIQUIDITY SWEEP</span>
+          </div>
+          <h3 class="engine-name">Liquidity Sweep & Pinbar Rejection</h3>
+          <p class="engine-desc">Bắt bẫy giá Smart Money khi nến quét qua đỉnh/đáy 24 nến trước rồi rút chân mạnh mẽ (Râu &ge; 45%). SL siêu ngắn ngoài râu quét.</p>
+          <div class="engine-metrics">
+            <div class="engine-metric-item">
+              <span class="metric-label">Rủi ro vốn</span>
+              <strong class="metric-val mono text-blue">0.5% Vốn (Demo)</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Cặp lệnh</span>
+              <strong class="metric-val mono">Twin R:R 1.0 & 2.0</strong>
+            </div>
+            <div class="engine-metric-item">
+              <span class="metric-label">Tài sản</span>
+              <strong class="metric-val mono">GOLD, BTC, USOIL</strong>
             </div>
           </div>
         </div>

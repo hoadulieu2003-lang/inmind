@@ -87,6 +87,12 @@ class RiskManager {
         effectiveRiskPercent = tiered.rank2And3RiskPercent || 2.0;
       }
     }
+    if (!effectiveRiskPercent && strategy) {
+      const sUpper = strategy.toUpperCase();
+      if (sUpper.includes('LAMBDA') || sUpper.includes('OMEGA') || sUpper.includes('COUNTER')) {
+        effectiveRiskPercent = this.config.counterTrend?.riskPercent || 0.5;
+      }
+    }
     if (!effectiveRiskPercent) {
       effectiveRiskPercent = this.config.risk?.tieredRisk?.baseRiskPercent || this.config.risk?.riskPerTradePercent || 1.0;
     }

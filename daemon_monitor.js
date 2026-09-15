@@ -217,6 +217,159 @@ function calcVolumePA(barsList, volPeriod = 20) {
   };
 }
 
+// 3.1. Thuật toán RSI Divergence thuần JS (Động cơ Lambda)
+function calcRsiDivergence(barsList, rsiPeriod = 14, lookback = 24) {
+  const n = barsList ? barsList.length : 0;
+  if (n < rsiPeriod + lookback + 5) {
+    return { bullDiv: false, bearDiv: false, rsi: null };
+  }
+
+  // RSI(14) with Wilder's smoothing
+  const gains = new Array(n).fill(0);
+  const losses = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    const diff = barsList[i].close - barsList[i - 1].close;
+    if (diff > 0) gains[i] = diff;
+    else losses[i] = Math.abs(diff);
+  }
+  const rsi = new Array(n).fill(50);
+  let avgGain = gains.slice(1, rsiPeriod + 1).reduce((a, b) => a + b, 0) / rsiPeriod;
+  let avgLoss = losses.slice(1, rsiPeriod + 1).reduce((a, b) => a + b, 0) / rsiPeriod;
+  if (avgLoss === 0) rsi[rsiPeriod] = 100;
+  else rsi[rsiPeriod] = 100 - (100 / (1 + avgGain / avgLoss));
+
+  for (let i = rsiPeriod + 1; i < n; i++) {
+    avgGain = (avgGain * (rsiPeriod - 1) + gains[i]) / rsiPeriod;
+    avgLoss = (avgLoss * (rsiPeriod - 1) + losses[i]) / rsiPeriod;
+    if (avgLoss === 0) rsi[i] = 100;
+    else rsi[i] = +(100 - (100 / (1 + avgGain / avgLoss))).toFixed(2);
+  }
+
+  const evalIdx = n >= 2 ? n - 2 : n - 1; // Confirmed candle T-1
+  const currentLow = barsList[evalIdx].low;
+  const currentHigh = barsList[evalIdx].high;
+  const currentRsi = rsi[evalIdx];
+
+  // Look for pivot lows and pivot highs in lookback window
+  let prevLowIdx = -1;
+  let minLow = Infinity;
+  let prevHighIdx = -1;
+  let maxHigh = -Infinity;
+
+  const startIdx = Math.max(rsiPeriod + 1, evalIdx - lookback);
+  const endSearchIdx = evalIdx - 2;
+
+  for (let i = startIdx; i <= endSearchIdx; i++) {
+    if (barsList[i].low < minLow) {
+      minLow = barsList[i].low;
+      prevLowIdx = i;
+    }
+    if (barsList[i].high > maxHigh) {
+      maxHigh = barsList[i].high;
+      prevHighIdx = i;
+    }
+  }
+
+  // Bullish Divergence: Giá tạo đáy thấp hơn hoặc bằng minLow, nhưng RSI tạo đáy cao hơn đáng kể
+  let bullDiv = false;
+  if (prevLowIdx !== -1 && currentLow <= minLow && currentRsi > (rsi[prevLowIdx] + 2) && currentRsi <= 45) {
+    bullDiv = true;
+  }
+
+  // Bearish Divergence: Giá tạo đỉnh cao hơn hoặc bằng maxHigh, nhưng RSI tạo đỉnh thấp hơn đáng kể
+  let bearDiv = false;
+  if (prevHighIdx !== -1 && currentHigh >= maxHigh && currentRsi < (rsi[prevHighIdx] - 2) && currentRsi >= 55) {
+    bearDiv = true;
+  }
+
+  return {
+    bullDiv,
+    bearDiv,
+    rsi: currentRsi,
+    prevRsiLow: prevLowIdx !== -1 ? rsi[prevLowIdx] : null,
+    prevRsiHigh: prevHighIdx !== -1 ? rsi[prevHighIdx] : null
+  };
+}
+
+// 3.2. Thuật toán Bollinger Bands 2.5 SD Extreme Fade thuần JS (Động cơ Lambda)
+function calcBollingerBandExtreme(barsList, period = 20, stdDev = 2.5) {
+  const n = barsList ? barsList.length : 0;
+  if (n < period + 3) return { upperSignal: false, lowerSignal: false, bb: null };
+
+  const evalIdx = n >= 2 ? n - 2 : n - 1;
+  const prevIdx = evalIdx - 1;
+
+  function getBB(targetIdx) {
+    const slice = barsList.slice(targetIdx - period + 1, targetIdx + 1).map(b => b.close);
+    const mean = slice.reduce((a, b) => a + b, 0) / period;
+    const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+    const sd = Math.sqrt(variance);
+    return {
+      mid: +mean.toFixed(2),
+      upper: +(mean + stdDev * sd).toFixed(2),
+      lower: +(mean - stdDev * sd).toFixed(2)
+    };
+  }
+
+  const bbCurr = getBB(evalIdx);
+  const bbPrev = getBB(prevIdx);
+
+  const evalBar = barsList[evalIdx];
+  const prevBar = barsList[prevIdx];
+
+  // Rejection Upper: Nến chọc vượt dải trên 2.5 SD nhưng nến chốt đóng quay ngược vào trong dải kèm nến giảm
+  const piercedUpper = evalBar.high >= bbCurr.upper || prevBar.high >= bbPrev.upper;
+  const closedInsideUpper = evalBar.close <= bbCurr.upper && evalBar.close < evalBar.open;
+
+  // Rejection Lower: Nến chọc thủng dải dưới 2.5 SD nhưng nến chốt đóng quay ngược vào trong dải kèm nến tăng
+  const piercedLower = evalBar.low <= bbCurr.lower || prevBar.low <= bbPrev.lower;
+  const closedInsideLower = evalBar.close >= bbCurr.lower && evalBar.close > evalBar.open;
+
+  return {
+    upperSignal: piercedUpper && closedInsideUpper,
+    lowerSignal: piercedLower && closedInsideLower,
+    bb: bbCurr
+  };
+}
+
+// 3.3. Thuật toán ICT / SMC Liquidity Sweep & Fakeout Fade thuần JS (Động cơ Omega)
+function calcLiquiditySweepFade(barsList, lookback = 24) {
+  const n = barsList ? barsList.length : 0;
+  if (n < lookback + 5) return { sweepBuy: false, sweepSell: false, prevHigh: null, prevLow: null };
+
+  const evalIdx = n >= 2 ? n - 2 : n - 1;
+  const evalBar = barsList[evalIdx];
+  const range = evalBar.high - evalBar.low;
+  if (range <= 0) return { sweepBuy: false, sweepSell: false };
+
+  // Xác định đỉnh cao nhất và đáy thấp nhất trong lookback nến trước (không tính nến hiện tại)
+  let prevHigh = -Infinity;
+  let prevLow = Infinity;
+  for (let i = evalIdx - lookback; i < evalIdx; i++) {
+    if (barsList[i].high > prevHigh) prevHigh = barsList[i].high;
+    if (barsList[i].low < prevLow) prevLow = barsList[i].low;
+  }
+
+  // Quét thanh khoản mua (Buy-side Sweep): Nến quét vượt đỉnh cũ, nhưng đóng dưới đỉnh cũ kèm râu trên dài >= 45%
+  const upperWick = evalBar.high - Math.max(evalBar.open, evalBar.close);
+  const upperWickRatio = upperWick / range;
+  const sweepSell = evalBar.high > prevHigh && evalBar.close <= prevHigh && upperWickRatio >= 0.45 && evalBar.close <= evalBar.open;
+
+  // Quét thanh khoản bán (Sell-side Sweep): Nến quét thủng đáy cũ, nhưng đóng trên đáy cũ kèm râu dưới dài >= 45%
+  const lowerWick = Math.min(evalBar.open, evalBar.close) - evalBar.low;
+  const lowerWickRatio = lowerWick / range;
+  const sweepBuy = evalBar.low < prevLow && evalBar.close >= prevLow && lowerWickRatio >= 0.45 && evalBar.close >= evalBar.open;
+
+  return {
+    sweepBuy,
+    sweepSell,
+    prevHigh: +prevHigh.toFixed(2),
+    prevLow: +prevLow.toFixed(2),
+    upperWickRatio: +upperWickRatio.toFixed(2),
+    lowerWickRatio: +lowerWickRatio.toFixed(2)
+  };
+}
+
 // 4. Phân chia khối lượng cặp lệnh song sinh Scalper & Runner
 function splitTwinLots(totalLot, lotStep = 0.01, splitRatio = [0.5, 0.5]) {
   const ratioA = (Array.isArray(splitRatio) && splitRatio[0] > 0) ? splitRatio[0] : 0.5;
@@ -984,6 +1137,121 @@ class TradingDaemon {
             };
           }
 
+          // 10. Thuật toán RSI Divergence thuần JS (Động cơ Lambda - Counter-Trend)
+          function calcRsiDivergence(barsList, rsiPeriod = 14, lookback = 24) {
+            const n = barsList ? barsList.length : 0;
+            if (n < rsiPeriod + lookback + 5) return { bullDiv: false, bearDiv: false, rsi: null };
+            const gains = new Array(n).fill(0);
+            const losses = new Array(n).fill(0);
+            for (let i = 1; i < n; i++) {
+              const diff = barsList[i].close - barsList[i - 1].close;
+              if (diff > 0) gains[i] = diff;
+              else losses[i] = Math.abs(diff);
+            }
+            const rsi = new Array(n).fill(50);
+            let avgGain = gains.slice(1, rsiPeriod + 1).reduce((a, b) => a + b, 0) / rsiPeriod;
+            let avgLoss = losses.slice(1, rsiPeriod + 1).reduce((a, b) => a + b, 0) / rsiPeriod;
+            if (avgLoss === 0) rsi[rsiPeriod] = 100;
+            else rsi[rsiPeriod] = 100 - (100 / (1 + avgGain / avgLoss));
+            for (let i = rsiPeriod + 1; i < n; i++) {
+              avgGain = (avgGain * (rsiPeriod - 1) + gains[i]) / rsiPeriod;
+              avgLoss = (avgLoss * (rsiPeriod - 1) + losses[i]) / rsiPeriod;
+              if (avgLoss === 0) rsi[i] = 100;
+              else rsi[i] = +(100 - (100 / (1 + avgGain / avgLoss))).toFixed(2);
+            }
+            const evalIdx = n >= 2 ? n - 2 : n - 1;
+            const currentLow = barsList[evalIdx].low;
+            const currentHigh = barsList[evalIdx].high;
+            const currentRsi = rsi[evalIdx];
+            let prevLowIdx = -1;
+            let minLow = Infinity;
+            let prevHighIdx = -1;
+            let maxHigh = -Infinity;
+            const startIdx = Math.max(rsiPeriod + 1, evalIdx - lookback);
+            const endSearchIdx = evalIdx - 2;
+            for (let i = startIdx; i <= endSearchIdx; i++) {
+              if (barsList[i].low < minLow) { minLow = barsList[i].low; prevLowIdx = i; }
+              if (barsList[i].high > maxHigh) { maxHigh = barsList[i].high; prevHighIdx = i; }
+            }
+            let bullDiv = false;
+            if (prevLowIdx !== -1 && currentLow <= minLow && currentRsi > (rsi[prevLowIdx] + 2) && currentRsi <= 45) {
+              bullDiv = true;
+            }
+            let bearDiv = false;
+            if (prevHighIdx !== -1 && currentHigh >= maxHigh && currentRsi < (rsi[prevHighIdx] - 2) && currentRsi >= 55) {
+              bearDiv = true;
+            }
+            return {
+              bullDiv,
+              bearDiv,
+              rsi: currentRsi,
+              prevRsiLow: prevLowIdx !== -1 ? rsi[prevLowIdx] : null,
+              prevRsiHigh: prevHighIdx !== -1 ? rsi[prevHighIdx] : null
+            };
+          }
+
+          // 11. Thuật toán Bollinger Bands 2.5 SD Extreme Fade (Động cơ Lambda - Counter-Trend)
+          function calcBollingerBandExtreme(barsList, period = 20, stdDev = 2.5) {
+            const n = barsList ? barsList.length : 0;
+            if (n < period + 3) return { upperSignal: false, lowerSignal: false, bb: null };
+            const evalIdx = n >= 2 ? n - 2 : n - 1;
+            const prevIdx = evalIdx - 1;
+            function getBB(targetIdx) {
+              const slice = barsList.slice(targetIdx - period + 1, targetIdx + 1).map(b => b.close);
+              const mean = slice.reduce((a, b) => a + b, 0) / period;
+              const variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / period;
+              const sd = Math.sqrt(variance);
+              return {
+                mid: +mean.toFixed(2),
+                upper: +(mean + stdDev * sd).toFixed(2),
+                lower: +(mean - stdDev * sd).toFixed(2)
+              };
+            }
+            const bbCurr = getBB(evalIdx);
+            const bbPrev = getBB(prevIdx);
+            const evalBar = barsList[evalIdx];
+            const prevBar = barsList[prevIdx];
+            const piercedUpper = evalBar.high >= bbCurr.upper || prevBar.high >= bbPrev.upper;
+            const closedInsideUpper = evalBar.close <= bbCurr.upper && evalBar.close < evalBar.open;
+            const piercedLower = evalBar.low <= bbCurr.lower || prevBar.low <= bbPrev.lower;
+            const closedInsideLower = evalBar.close >= bbCurr.lower && evalBar.close > evalBar.open;
+            return {
+              upperSignal: piercedUpper && closedInsideUpper,
+              lowerSignal: piercedLower && closedInsideLower,
+              bb: bbCurr
+            };
+          }
+
+          // 12. Thuật toán ICT / SMC Liquidity Sweep & Fakeout Fade (Động cơ Omega - Counter-Trend)
+          function calcLiquiditySweepFade(barsList, lookback = 24) {
+            const n = barsList ? barsList.length : 0;
+            if (n < lookback + 5) return { sweepBuy: false, sweepSell: false, prevHigh: null, prevLow: null };
+            const evalIdx = n >= 2 ? n - 2 : n - 1;
+            const evalBar = barsList[evalIdx];
+            const range = evalBar.high - evalBar.low;
+            if (range <= 0) return { sweepBuy: false, sweepSell: false };
+            let prevHigh = -Infinity;
+            let prevLow = Infinity;
+            for (let i = evalIdx - lookback; i < evalIdx; i++) {
+              if (barsList[i].high > prevHigh) prevHigh = barsList[i].high;
+              if (barsList[i].low < prevLow) prevLow = barsList[i].low;
+            }
+            const upperWick = evalBar.high - Math.max(evalBar.open, evalBar.close);
+            const upperWickRatio = upperWick / range;
+            const sweepSell = evalBar.high > prevHigh && evalBar.close <= prevHigh && upperWickRatio >= 0.45 && evalBar.close <= evalBar.open;
+            const lowerWick = Math.min(evalBar.open, evalBar.close) - evalBar.low;
+            const lowerWickRatio = lowerWick / range;
+            const sweepBuy = evalBar.low < prevLow && evalBar.close >= prevLow && lowerWickRatio >= 0.45 && evalBar.close >= evalBar.open;
+            return {
+              sweepBuy,
+              sweepSell,
+              prevHigh: +prevHigh.toFixed(2),
+              prevLow: +prevLow.toFixed(2),
+              upperWickRatio: +upperWickRatio.toFixed(2),
+              lowerWickRatio: +lowerWickRatio.toFixed(2)
+            };
+          }
+
           const utBotData = calcUTBot(allBars, ${utKey}, ${utPeriod});
           const cciData = calcCCI(allBars, 20);
           const ttmData = calcTTMSqueeze(allBars, 20, 2.0, 20, 1.5, 20);
@@ -994,6 +1262,9 @@ class TradingDaemon {
           const volumePaData = calcVolumePA(allBars, 20);
           const supertrendRsiData = calcSupertrendRsi(allBars, 10, 3.0, 14, 45);
           const halfTrendAdxData = calcHalfTrendAdx(allBars, 2, 14, ${asset.minAdxThreshold || 22});
+          const rsiDivData = calcRsiDivergence(allBars, 14, 24);
+          const bbExtremeData = calcBollingerBandExtreme(allBars, 20, 2.5);
+          const liquiditySweepData = calcLiquiditySweepFade(allBars, 24);
 
           // Nến đã chốt (Confirmed Bar T-1)
           const confirmedBar = allBars.length >= 2 ? allBars[allBars.length - 2] : allBars[allBars.length - 1];
@@ -1026,7 +1297,10 @@ class TradingDaemon {
             asianSweep: asianSweepData,
             volumePA: volumePaData,
             supertrendRsi: supertrendRsiData,
-            halfTrendAdx: halfTrendAdxData
+            halfTrendAdx: halfTrendAdxData,
+            rsiDivergence: rsiDivData,
+            bbExtreme: bbExtremeData,
+            liquiditySweep: liquiditySweepData
           };
         } catch (e) {
           return { error: e.message };
@@ -2105,6 +2379,13 @@ class TradingDaemon {
 
     const stratUpper = (strategy || '').toUpperCase();
     const assetUpper = (assetName || '').toUpperCase();
+
+    // 0. Kiểm tra Động cơ Đánh Lệch Xu Hướng (Counter-Trend Engines: 0.5% Vốn)
+    if (stratUpper.includes('LAMBDA') || stratUpper.includes('OMEGA') || stratUpper.includes('COUNTER')) {
+      const ctRisk = config.counterTrend?.riskPercent || 0.5;
+      return { rank: 5, riskPercent: ctRisk, title: `⚡ ĐÁNH LỆCH XU HƯỚNG (${ctRisk}% VỐN)` };
+    }
+
     const rank1Key = (tieredRiskCfg.rank1Strategy || 'ENGINE_DELTA').toUpperCase();
     const rank23Keys = (tieredRiskCfg.rank2And3Strategies || ['ENGINE_BETA', 'ENGINE_THETA']).map(s => s.toUpperCase());
 
@@ -2700,6 +2981,42 @@ class TradingDaemon {
         }
       }
 
+      // =========================================================================
+      // WP-COUNTER-TREND: ĐÁNH LỆCH XU HƯỚNG / NGƯỢC XU HƯỚNG (ENGINE_LAMBDA & ENGINE_OMEGA)
+      // Không bị ràng buộc bởi EMA 200 (isBullish / isBearish), BẮT BUỘC qua ADX Guard <= 28
+      // =========================================================================
+      const ctConfig = config.counterTrend || { enabled: true, mode: 'LIVE', riskPercent: 0.5, maxAdxThreshold: 28.0 };
+      const allowLambda = assetEngines.includes('ENGINE_LAMBDA') && ctConfig.enabled;
+      const allowOmega = assetEngines.includes('ENGINE_OMEGA') && ctConfig.enabled;
+      const curAdx = data.halfTrendAdx?.adx !== undefined ? data.halfTrendAdx.adx : 20;
+      const isAdxSafeForCounterTrend = curAdx <= (ctConfig.maxAdxThreshold || 28.0);
+
+      const hasLambdaBuy = !!(data.bbExtreme?.lowerSignal && data.rsiDivergence?.bullDiv);
+      const hasLambdaSell = !!(data.bbExtreme?.upperSignal && data.rsiDivergence?.bearDiv);
+      const hasOmegaBuy = !!data.liquiditySweep?.sweepBuy;
+      const hasOmegaSell = !!data.liquiditySweep?.sweepSell;
+
+      const ctStr = `Lambda: B=${hasLambdaBuy}/S=${hasLambdaSell} | Omega: B=${hasOmegaBuy}/S=${hasOmegaSell} | CT_ADX_Safe: ${isAdxSafeForCounterTrend} (ADX: ${curAdx})`;
+      log(`[COUNTER-TREND ENGINES] ${asset.name} | ${ctStr}`);
+
+      if (!signalAction && isAdxSafeForCounterTrend) {
+        if (allowLambda && hasLambdaBuy) {
+          signalAction = 'BUY';
+          triggeredStrategy = 'ENGINE_LAMBDA (RSI_DIV_BB_EXTREME)';
+        } else if (allowLambda && hasLambdaSell) {
+          signalAction = 'SELL';
+          triggeredStrategy = 'ENGINE_LAMBDA (RSI_DIV_BB_EXTREME)';
+        } else if (allowOmega && hasOmegaBuy) {
+          signalAction = 'BUY';
+          triggeredStrategy = 'ENGINE_OMEGA (LIQUIDITY_SWEEP_FADEOUT)';
+        } else if (allowOmega && hasOmegaSell) {
+          signalAction = 'SELL';
+          triggeredStrategy = 'ENGINE_OMEGA (LIQUIDITY_SWEEP_FADEOUT)';
+        }
+      } else if (!isAdxSafeForCounterTrend && (hasLambdaBuy || hasLambdaSell || hasOmegaBuy || hasOmegaSell)) {
+        log(`⏸️ [COUNTER-TREND BLOCKED] Phát hiện tín hiệu lệch xu hướng nhưng ADX = ${curAdx} > ${ctConfig.maxAdxThreshold}. Thị trường đang có sóng lớn/Parabolic, TỪ CHỐI bắt dao rơi!`);
+      }
+
       if (signalAction) {
         log(`🔥 [KÍCH HOẠT TÍN HIỆU] Động cơ [${triggeredStrategy}] phát tín hiệu ${signalAction} hợp lệ trên ${asset.name}!`);
 
@@ -2903,6 +3220,9 @@ module.exports = {
   calcEmaPullback,
   calcAsianRangeSweep,
   calcVolumePA,
+  calcRsiDivergence,
+  calcBollingerBandExtreme,
+  calcLiquiditySweepFade,
   splitTwinLots,
   calcTwinTakeProfits
 };
