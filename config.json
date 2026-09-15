@@ -75,7 +75,7 @@
     "USOIL": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ZETA", "ENGINE_KAPPA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "GBPUSD": ["ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA"],
-    "US500": ["ENGINE_THETA", "ENGINE_DELTA", "ENGINE_ALPHA"]
+    "US500": ["ENGINE_DELTA", "ENGINE_ALPHA", "ENGINE_THETA"]
   },
   "symbols": {
     "GOLD": {
@@ -84,7 +84,8 @@
       "tvSymbol": "TVC:GOLD",
       "watchlistKey": "GOLD",
       "minAtrBuffer": 2.5,
-      "minAdxThreshold": 28.0
+      "minAdxThreshold": 28.0,
+      "maxSpreadUSD": 0.35
     },
     "USOIL": {
       "name": "USOIL",
@@ -92,7 +93,14 @@
       "tvSymbol": "TVC:USOIL",
       "watchlistKey": "USOIL",
       "minAtrBuffer": 0.35,
-      "minAdxThreshold": 22.0
+      "minAdxThreshold": 22.0,
+      "sessionFilter": {
+        "enabled": true,
+        "allowedHoursVN": [20, 21, 22, 23, 0, 1, 2, 3],
+        "startMinute": 0,
+        "endMinute": 0,
+        "description": "Chỉ kích hoạt phiên London mở rộng & New York (20:00 - 04:00 VN / 13:00 - 21:00 UTC)"
+      }
     },
     "BTCUSD": {
       "name": "BTCUSD",

@@ -1,0 +1,117 @@
+{
+  "date": "2026-09-15",
+  "generatedAt": "2026-09-15T15:29:36.230Z",
+  "initialBalance": 9388.75,
+  "endingBalance": 10851.48,
+  "endingEquity": 10836.98,
+  "netPnL": 1448.23,
+  "roiPercent": 15.43,
+  "performance": {
+    "totalClosedTrades": 73,
+    "winTrades": 27,
+    "lossTrades": 15,
+    "breakevenTrades": 31,
+    "winRatePercent": 64.3,
+    "profitFactor": 2.56,
+    "grossProfitUSD": 2001.18,
+    "grossLossUSD": 780.7,
+    "averageWinUSD": 74.12,
+    "averageLossUSD": 52.05,
+    "evRatio": 1.42
+  },
+  "strategyBreakdown": {
+    "ENGINE_ALPHA (UT_BOT)": {
+      "trades": 7,
+      "wins": 5,
+      "losses": 2,
+      "bes": 0,
+      "pnl": 91.04
+    },
+    "ENGINE_BETA (CCI_PULLBACK)": {
+      "trades": 6,
+      "wins": 1,
+      "losses": 1,
+      "bes": 4,
+      "pnl": 80.4
+    },
+    "ENGINE_DELTA (HALFTREND_ADX)": {
+      "trades": 50,
+      "wins": 17,
+      "losses": 6,
+      "bes": 27,
+      "pnl": 959
+    },
+    "ENGINE_THETA (EMA_PULLBACK)": {
+      "trades": 8,
+      "wins": 2,
+      "losses": 6,
+      "bes": 0,
+      "pnl": 3.08
+    },
+    "ENGINE_OMEGA (LIQUIDITY_SWEEP_FADEOUT)": {
+      "trades": 2,
+      "wins": 2,
+      "losses": 0,
+      "bes": 0,
+      "pnl": 86.96
+    }
+  },
+  "assetBreakdown": {
+    "XAU/USD": {
+      "trades": 18,
+      "wins": 10,
+      "losses": 6,
+      "bes": 2,
+      "pnl": -85.6
+    },
+    "USOIL": {
+      "trades": 4,
+      "wins": 0,
+      "losses": 1,
+      "bes": 3,
+      "pnl": -89.32
+    },
+    "BTC": {
+      "trades": 41,
+      "wins": 13,
+      "losses": 2,
+      "bes": 26,
+      "pnl": 1202.58
+    },
+    "US500": {
+      "trades": 10,
+      "wins": 4,
+      "losses": 6,
+      "bes": 0,
+      "pnl": 192.82
+    }
+  },
+  "ticketBreakdown": {
+    "SCALPER": {
+      "trades": 35,
+      "wins": 13,
+      "losses": 7,
+      "bes": 15,
+      "pnl": 590.17
+    },
+    "RUNNER": {
+      "trades": 35,
+      "wins": 13,
+      "losses": 6,
+      "bes": 16,
+      "pnl": 635.27
+    }
+  },
+  "openPositionsAtClose": [
+    {
+      "symbol": "USOIL",
+      "side": "Sell",
+      "lot": 0.01,
+      "openPrice": 98.942,
+      "currentPrice": 100.392,
+      "floatingPnl": -14.5,
+      "ticketCount": 1,
+      "layersCount": 1
+    }
+  ]
+}

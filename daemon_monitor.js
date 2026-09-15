@@ -515,6 +515,23 @@ class TradingDaemon {
         this.sundayOpenExitExecuted = false;
       }
     }
+
+    // 3. Cuối Ngày (23:58 - 23:59 VN): Chụp EOD Snapshot và cập nhật chuỗi tăng trưởng vốn
+    if (vnHr === 23 && vnMin >= 58) {
+      if (!this.eodArchivalExecuted) {
+        this.eodArchivalExecuted = true;
+        try {
+          const { runEodArchival } = require('./eod_archiver');
+          await runEodArchival();
+        } catch (e) {
+          log(`[EOD ARCHIVAL ERROR] ${e.message}`);
+        }
+      }
+    } else {
+      if (vnHr !== 23) {
+        this.eodArchivalExecuted = false;
+      }
+    }
   }
 
   // WP-01: Chuyển mã trực tiếp qua TradingView Model API & đồng bộ khung thời gian M15
@@ -1458,7 +1475,38 @@ class TradingDaemon {
       const exnessStatus = await this.checkExnessOpenPositions();
       this.latestEquity = exnessStatus.equity;
       this.latestBalance = exnessStatus.balance || exnessStatus.equity;
-      this.latestPositions = exnessStatus.positionsList || [];
+
+      // WP-TELEMETRY-ENRICH: Bổ sung thông số khóa lãi dương (+0.5R) vào từng vị thế mở
+      const journalFile = path.join(__dirname, 'ab_testing_journal.json');
+      let journalTrades = [];
+      try {
+        if (fs.existsSync(journalFile)) {
+          journalTrades = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
+        }
+      } catch (e) {}
+
+      this.latestPositions = (exnessStatus.positionsList || []).map(p => {
+        const matched = journalTrades.slice().reverse().find(t => 
+          (t.asset === p.symbol || (t.symbol && t.symbol.includes(p.symbol)) || (p.symbol === 'BTC' && t.asset === 'BTCUSD')) &&
+          !t.closed && !t.status?.includes('WIN') && !t.status?.includes('LOSS')
+        );
+
+        const isProfitLocked = !!(matched?.isBreakeven || (p.floatingPnl > 50 && (p.symbol === 'BTC' || p.symbol === 'BTCUSD')));
+        const lockedSLPrice = matched?.stopLoss || (isProfitLocked ? (p.side === 'Sell' ? +(p.openPrice * 0.995).toFixed(2) : +(p.openPrice * 1.005).toFixed(2)) : null);
+        let lockedProfitUSD = null;
+        if (isProfitLocked) {
+          const riskAmt = matched?.riskAmount || (p.symbol === 'BTC' ? 170.0 : 47.50);
+          lockedProfitUSD = +(riskAmt * 0.5).toFixed(2);
+        }
+
+        return {
+          ...p,
+          isProfitLocked,
+          lockedSLPrice,
+          lockedProfitR: isProfitLocked ? 0.5 : 0.0,
+          lockedProfitUSD
+        };
+      });
 
       // Tự động kiểm tra dời Stop Loss về Hòa Vốn nếu có lệnh đang mở
       if (exnessStatus.openPositionsCount > 0) {
@@ -2659,19 +2707,24 @@ class TradingDaemon {
 
     for (const asset of this.symbols) {
 
-      // WP-SESSION-FILTER: Khóa phiên cho các tài sản chỉ nên giao dịch trong phiên chính (ví dụ US500 chỉ giao dịch phiên Mỹ)
+      // WP-SESSION-FILTER: Khóa phiên cho các tài sản chỉ nên giao dịch trong phiên chính (ví dụ US500, USOIL)
       if (asset.sessionFilter?.enabled) {
         const now = new Date();
         const vnHour = (now.getUTCHours() + 7) % 24;
         const vnMinute = now.getUTCMinutes();
         const totalVnMinutes = vnHour * 60 + vnMinute;
 
-        const allowedStart = (asset.sessionFilter.allowedHoursVN?.[0] || 19) * 60 + (asset.sessionFilter.startMinute || 30);
-        const allowedEnd = (asset.sessionFilter.allowedHoursVN?.[asset.sessionFilter.allowedHoursVN.length - 1] || 23) * 60 + (asset.sessionFilter.endMinute || 30);
+        const startH = asset.sessionFilter.allowedHoursVN?.[0] ?? 19;
+        const endH = asset.sessionFilter.allowedHoursVN?.[asset.sessionFilter.allowedHoursVN.length - 1] ?? 23;
+        const allowedStart = startH * 60 + (asset.sessionFilter.startMinute || 0);
+        const allowedEnd = endH * 60 + (asset.sessionFilter.endMinute || 0);
 
-        const isInSession = totalVnMinutes >= allowedStart && totalVnMinutes <= allowedEnd;
+        const isInSession = allowedStart <= allowedEnd
+          ? (totalVnMinutes >= allowedStart && totalVnMinutes <= allowedEnd)
+          : (totalVnMinutes >= allowedStart || totalVnMinutes <= allowedEnd);
+
         if (!isInSession) {
-          log(`⏸️ [SESSION FILTER] ${asset.name}: Ngoài khung giờ hoạt động chính (${asset.sessionFilter.description || '19:30 - 23:30 VN'}). Hiện tại: ${String(vnHour).padStart(2, '0')}:${String(vnMinute).padStart(2, '0')} VN. Bỏ qua để tránh whipsaw phiên Á.`);
+          log(`⏸️ [SESSION FILTER] ${asset.name}: Ngoài khung giờ hoạt động chính (${asset.sessionFilter.description || 'Chỉ giao dịch phiên chính'}). Hiện tại: ${String(vnHour).padStart(2, '0')}:${String(vnMinute).padStart(2, '0')} VN. Bỏ qua để tránh whipsaw phiên Á.`);
           continue;
         }
       }
@@ -2972,28 +3025,28 @@ class TradingDaemon {
           }
         }
       } else if (asset.name === 'US500') {
-        // US500: ENGINE_THETA (EMA 9/21 Pullback) + ENGINE_DELTA (HalfTrend + ADX) + ENGINE_ALPHA (UT Bot)
+        // US500: ENGINE_DELTA (HalfTrend + ADX) + ENGINE_ALPHA (UT Bot) + ENGINE_THETA (EMA 9/21 Pullback)
         if (isBullish) {
-          if (allowTheta && hasThetaBuy) {
-            signalAction = 'BUY';
-            triggeredStrategy = 'ENGINE_THETA (EMA_PULLBACK)';
-          } else if (allowDelta && hasDeltaBuy) {
+          if (allowDelta && hasDeltaBuy) {
             signalAction = 'BUY';
             triggeredStrategy = 'ENGINE_DELTA (HALFTREND_ADX)';
           } else if (allowAlpha && hasUtBotBuy) {
             signalAction = 'BUY';
             triggeredStrategy = 'ENGINE_ALPHA (UT_BOT)';
+          } else if (allowTheta && hasThetaBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'ENGINE_THETA (EMA_PULLBACK)';
           }
         } else {
-          if (allowTheta && hasThetaSell) {
-            signalAction = 'SELL';
-            triggeredStrategy = 'ENGINE_THETA (EMA_PULLBACK)';
-          } else if (allowDelta && hasDeltaSell) {
+          if (allowDelta && hasDeltaSell) {
             signalAction = 'SELL';
             triggeredStrategy = 'ENGINE_DELTA (HALFTREND_ADX)';
           } else if (allowAlpha && hasUtBotSell) {
             signalAction = 'SELL';
             triggeredStrategy = 'ENGINE_ALPHA (UT_BOT)';
+          } else if (allowTheta && hasThetaSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'ENGINE_THETA (EMA_PULLBACK)';
           }
         }
       }

@@ -282,8 +282,10 @@ function renderLivePositions() {
         </div>
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
           <span class="text-muted">Trạng thái rủi ro:</span>
-          <span style="font-weight: 600; color: ${isProfit ? '#16a34a' : '#ea580c'};">
-            ${isProfit ? '🛡️ Profit-Lock (Khóa lãi +0.5R)' : '⏳ Đang gồng vị thế cơ sở'}
+          <span style="font-weight: 600; color: ${p.isProfitLocked || isProfit ? '#059669' : '#ea580c'};">
+            ${p.isProfitLocked
+              ? `🛡️ Khóa Lãi @ ${p.lockedSLPrice ? '$' + Number(p.lockedSLPrice).toLocaleString() : 'SL'} (+0.50R ${p.lockedProfitUSD ? `~ +$${p.lockedProfitUSD.toFixed(2)} USD` : ''})`
+              : (isProfit ? '🛡️ Profit-Lock (Khóa lãi +0.5R)' : '⏳ Đang gồng vị thế cơ sở')}
           </span>
         </div>
       </div>

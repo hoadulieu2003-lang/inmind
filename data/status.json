@@ -1,43 +1,36 @@
 {
   "daemonActive": true,
-  "lastHeartbeatTime": 1789475589808,
-  "lastHeartbeatStr": "19:33:09",
-  "equity": 9427.82,
-  "balance": 9427.32,
+  "lastHeartbeatTime": 1789486456142,
+  "lastHeartbeatStr": "22:34:16",
+  "equity": 10836.69,
+  "balance": 10851.48,
   "initialBalance": 9388.75,
-  "netPnL": 39.07,
-  "roi": 0.42,
-  "openPositionsCount": 3,
+  "netPnL": 1447.94,
+  "roi": 15.42,
+  "openPositionsCount": 1,
   "openSymbols": [
-    "BTC",
     "USOIL"
   ],
   "positionsList": [
-    {
-      "symbol": "BTC",
-      "side": "Sell",
-      "lot": 1,
-      "openPrice": 76862.96,
-      "currentPrice": 76861.66,
-      "floatingPnl": 1.29,
-      "ticketCount": 2,
-      "layersCount": 1
-    },
     {
       "symbol": "USOIL",
       "side": "Sell",
       "lot": 0.01,
       "openPrice": 98.942,
-      "currentPrice": 99.021,
-      "floatingPnl": -0.79,
+      "currentPrice": 100.421,
+      "floatingPnl": -14.79,
       "ticketCount": 1,
-      "layersCount": 1
+      "layersCount": 1,
+      "isProfitLocked": false,
+      "lockedSLPrice": 103.77,
+      "lockedProfitR": 0,
+      "lockedProfitUSD": null
     }
   ],
-  "freeMargin": 9235.17,
-  "marginLevel": 4893.76,
-  "lastScanTime": "19:15:19",
-  "nextScanSeconds": 715,
+  "freeMargin": 10836.2,
+  "marginLevel": 2211569.39,
+  "lastScanTime": "22:34:16",
+  "nextScanSeconds": 649,
   "twinOrders": {
     "enabled": true,
     "scalperRR": 1,
@@ -78,20 +71,26 @@
     "GOLD": [
       "ENGINE_DELTA",
       "ENGINE_BETA",
-      "ENGINE_ALPHA"
+      "ENGINE_ALPHA",
+      "ENGINE_LAMBDA",
+      "ENGINE_OMEGA"
     ],
     "USOIL": [
       "ENGINE_DELTA",
       "ENGINE_EPSILON",
       "ENGINE_BETA",
-      "ENGINE_ALPHA"
+      "ENGINE_ALPHA",
+      "ENGINE_LAMBDA",
+      "ENGINE_OMEGA"
     ],
     "BTCUSD": [
       "ENGINE_DELTA",
       "ENGINE_BETA",
       "ENGINE_ZETA",
       "ENGINE_KAPPA",
-      "ENGINE_ALPHA"
+      "ENGINE_ALPHA",
+      "ENGINE_LAMBDA",
+      "ENGINE_OMEGA"
     ],
     "GBPUSD": [
       "ENGINE_EPSILON",
@@ -99,9 +98,9 @@
       "ENGINE_ALPHA"
     ],
     "US500": [
-      "ENGINE_THETA",
       "ENGINE_DELTA",
-      "ENGINE_ALPHA"
+      "ENGINE_ALPHA",
+      "ENGINE_THETA"
     ]
   },
   "maxTotalPositions": 10,
