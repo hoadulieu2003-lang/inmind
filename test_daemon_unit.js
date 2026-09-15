@@ -7,7 +7,8 @@ const {
   calcBollingerBandExtreme,
   calcLiquiditySweepFade,
   splitTwinLots, 
-  calcTwinTakeProfits 
+  calcTwinTakeProfits,
+  calcLockProfitSL
 } = require('./daemon_monitor.js');
 const riskManager = require('./risk_manager.js');
 const config = require('./config.json');
@@ -461,6 +462,26 @@ async function runTests() {
     }
     const rsiRes = calcRsiDivergence(rsiBars, 14, 24);
     assert('RSI Divergence tính toán an toàn và trả về cấu trúc chuẩn', typeof rsiRes.rsi === 'number' && typeof rsiRes.bullDiv === 'boolean' && typeof rsiRes.bearDiv === 'boolean', `RSI: ${rsiRes.rsi ? rsiRes.rsi.toFixed(2) : 'N/A'}`);
+  }
+
+  // TEST 13: Kiểm tra Cơ Chế Khóa Lãi Dương +0.5R (calcLockProfitSL)
+  console.log('\n--- 13. Kiểm tra Cơ Chế Khóa Lãi Dương +0.5R (calcLockProfitSL) ---');
+  {
+    // BUY: Entry 2000, SL 1990 (Risk = 10) -> Khóa +0.5R = 2000 + 0.5*10 = 2005.00
+    const buyLock05 = calcLockProfitSL('BUY', 2000.00, 1990.00, 0.5, 0.30, 2);
+    assert('BUY: Khóa Lãi Dương +0.5R chính xác tại 2005.00', buyLock05 === 2005.00, `Thực tế: ${buyLock05}`);
+
+    // SELL: Entry 2000, SL 2010 (Risk = 10) -> Khóa +0.5R = 2000 - 0.5*10 = 1995.00
+    const sellLock05 = calcLockProfitSL('SELL', 2000.00, 2010.00, 0.5, 0.30, 2);
+    assert('SELL: Khóa Lãi Dương +0.5R chính xác tại 1995.00', sellLock05 === 1995.00, `Thực tế: ${sellLock05}`);
+
+    // BUY BTCUSD: Entry 70000, SL 69000 (Risk = 1000) -> Khóa +0.5R = 70500.00
+    const btcLock = calcLockProfitSL('BUY', 70000.00, 69000.00, 0.5, 30.0, 2);
+    assert('BTC BUY: Khóa Lãi Dương +0.5R tại 70500.00', btcLock === 70500.00, `Thực tế: ${btcLock}`);
+
+    // Traditional Breakeven (lockR = 0): Entry 2000 + spreadBuffer 0.30 = 2000.30
+    const beZero = calcLockProfitSL('BUY', 2000.00, 1990.00, 0.0, 0.30, 2);
+    assert('Hòa Vốn Truyền Thống (lockR = 0): SL đặt tại Entry + Buffer = 2000.30', beZero === 2000.30, `Thực tế: ${beZero}`);
   }
 
   console.log('\n======================================================================');

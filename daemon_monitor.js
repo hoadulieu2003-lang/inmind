@@ -393,6 +393,18 @@ function calcTwinTakeProfits(action, entryPrice, stopLoss, scalperRR = 1.0, runn
   return { tpA, tpB, riskDist };
 }
 
+// 6. Tính toán Stop Loss Khóa Lãi Dương (Positive Profit-Lock +0.5R) hoặc Hòa Vốn (Breakeven)
+function calcLockProfitSL(action, entryPrice, stopLoss, lockR = 0.5, spreadBuffer = 0, decimals = 2) {
+  const isBuy = (action || '').toUpperCase() === 'BUY';
+  const riskDist = Math.abs(entryPrice - stopLoss);
+  const lockDistance = +(riskDist * lockR).toFixed(decimals);
+  if (isBuy) {
+    return +(entryPrice + lockDistance + (lockR > 0 ? 0 : spreadBuffer)).toFixed(decimals);
+  } else {
+    return +(entryPrice - lockDistance - (lockR > 0 ? 0 : spreadBuffer)).toFixed(decimals);
+  }
+}
+
 class TradingDaemon {
   constructor() {
     this.port = config.cdp?.port || 9222;
@@ -1630,23 +1642,26 @@ class TradingDaemon {
         // Đệm spread để đảm bảo hòa vốn thực tế sau phí
         const spreadBuffer = beConfig.spreadBufferUSD?.[symbolKey] || (symbolKey === 'GOLD' ? 0.30 : (symbolKey === 'BTCUSD' ? 30.0 : (symbolKey === 'GBPUSD' ? 0.0003 : (symbolKey === 'US500' ? 0.60 : 0.05))));
         const decimals = symbolKey === 'GBPUSD' ? 5 : (symbolKey === 'USOIL' ? 3 : 2);
-        const targetBreakevenSL = isBuy ? +(entryPrice + spreadBuffer).toFixed(decimals) : +(entryPrice - spreadBuffer).toFixed(decimals);
 
-        // Kiểm tra xem Stop Loss hiện tại đã ở mức hòa vốn hoặc tốt hơn chưa
+        // Khóa Lãi Dương +0.5R (Positive Profit-Lock): Nếu thị trường quay đầu vẫn bảo toàn lãi +0.5R
+        const lockR = typeof beConfig.lockProfitR === 'number' ? beConfig.lockProfitR : (beConfig.mode === 'PROFIT_LOCK_05R' ? 0.5 : 0.0);
+        const targetBreakevenSL = calcLockProfitSL(isBuy ? 'BUY' : 'SELL', entryPrice, initialSL, lockR, spreadBuffer, decimals);
+
+        // Kiểm tra xem Stop Loss hiện tại đã ở mức khóa lãi +0.5R hoặc tốt hơn chưa
         const isAlreadyBreakeven = isBuy 
           ? (currentSL !== null && currentSL >= targetBreakevenSL) 
           : (currentSL !== null && currentSL <= targetBreakevenSL);
 
         if (isAlreadyBreakeven) {
-          continue; // Đã bảo vệ hòa vốn hoặc trailing tốt hơn, bỏ qua
+          continue; // Đã bảo vệ hòa vốn/khóa lãi hoặc trailing tốt hơn, bỏ qua
         }
 
         // Tiêu chí kích hoạt:
-        // 1. currentR >= triggerRR (mặc định 1.0R hoặc 0.8R)
+        // 1. currentR >= triggerRR (mặc định 1.0R)
         // HOẶC 2. Lệnh là RUNNER và lệnh SCALPER cùng cơ hội đã chốt lời thành công
-        // HOẶC 3. Vị thế đang dương lớn (lợi nhuận > $50 USD hoặc currentR >= 0.8R)
+        // HOẶC 3. Vị thế đang dương lớn (lợi nhuận > $50 USD hoặc currentR >= 0.9R)
         const triggerRR = beConfig.triggerRR || 1.0;
-        let shouldTrigger = currentR >= triggerRR || currentR >= 0.80 || (floatingPnl >= 50 && currentR >= 0.5);
+        let shouldTrigger = currentR >= triggerRR || (lockR > 0 ? (currentR >= 0.90) : (currentR >= 0.80)) || (floatingPnl >= 50 && currentR >= 0.8);
 
         if (!shouldTrigger && beConfig.lockTicketBOnTicketATarget && matchedTrade?.ticketType === 'RUNNER') {
           const companionScalperWon = journalTrades.some(t =>
@@ -1657,22 +1672,23 @@ class TradingDaemon {
           );
           if (companionScalperWon) {
             shouldTrigger = true;
-            log(`🎯 [BREAKEVEN CONFLUENCE] Lệnh Scalper của ${symbolKey} đã chốt lời! Kích hoạt dời SL của Runner về Entry.`);
+            log(`🎯 [PROFIT-LOCK CONFLUENCE] Lệnh Scalper của ${symbolKey} đã chốt lời! Kích hoạt dời SL của Runner lên mức dương +${lockR}R.`);
           }
         }
 
         if (shouldTrigger) {
-          log(`🛡️ [AUTO BREAKEVEN TRIGGER] Phát hiện vị thế ${symbolKey} (${isBuy ? 'BUY' : 'SELL'}) đang dương +${currentR}R (Lãi: $${priceGain.toFixed(2)} / Thả nổi: $${floatingPnl})!`);
-          log(`   Giá vào: ${entryPrice} | Hiện tại: ${currentPrice} | SL cũ: ${currentSL || 'Chưa đặt (Modify)'} -> SL Mới (Hòa vốn): ${targetBreakevenSL}`);
+          const lockLabel = lockR > 0 ? `DƯƠNG +${lockR}R (KHÓA LÃI)` : 'HÒA VỐN';
+          log(`🛡️ [AUTO ${lockR > 0 ? 'PROFIT-LOCK' : 'BREAKEVEN'} TRIGGER] Phát hiện vị thế ${symbolKey} (${isBuy ? 'BUY' : 'SELL'}) đang dương +${currentR}R (Lãi: $${priceGain.toFixed(2)} / Thả nổi: $${floatingPnl})!`);
+          log(`   Giá vào: ${entryPrice} | Hiện tại: ${currentPrice} | SL cũ: ${currentSL || 'Chưa đặt (Modify)'} -> SL Mới (${lockLabel}): ${targetBreakevenSL}`);
 
           const modRes = await this.executeModifyExnessSL(ws, rowInfo.index, targetBreakevenSL, symbolKey);
           if (modRes.success) {
-            log(`✅ [AUTO BREAKEVEN SUCCESS] Đã dời Stop Loss thành công cho ${symbolKey} về ${targetBreakevenSL} USD. Vị thế đạt trạng thái Risk-Free (Không rủi ro)!`);
+            log(`✅ [AUTO ${lockR > 0 ? 'PROFIT-LOCK' : 'BREAKEVEN'} SUCCESS] Đã dời Stop Loss thành công cho ${symbolKey} lên ${targetBreakevenSL} USD (+${lockR}R). Vị thế được bảo vệ: nếu quay đầu vẫn có lãi!`);
 
             if (matchedTrade) {
               matchedTrade.stopLoss = targetBreakevenSL;
               matchedTrade.isBreakeven = true;
-              matchedTrade.note = (matchedTrade.note || '') + ` [BREAKEVEN LOCKED AT ${targetBreakevenSL}]`;
+              matchedTrade.note = (matchedTrade.note || '') + ` [PROFIT-LOCK AT +${lockR}R: ${targetBreakevenSL}]`;
               if (matchedTrade.positionId) {
                 db.updateTradeByPositionId(matchedTrade.positionId, {
                   stopLoss: targetBreakevenSL,
@@ -1683,7 +1699,7 @@ class TradingDaemon {
               try { fs.writeFileSync(journalFile, JSON.stringify(journalTrades, null, 2)); } catch (e) {}
             }
           } else {
-            log(`⚠️ [AUTO BREAKEVEN RETRY/FAILED] Không thể dời SL cho ${symbolKey}: ${modRes.error}`);
+            log(`⚠️ [AUTO ${lockR > 0 ? 'PROFIT-LOCK' : 'BREAKEVEN'} RETRY/FAILED] Không thể dời SL cho ${symbolKey}: ${modRes.error}`);
           }
         }
       }
@@ -3227,7 +3243,8 @@ module.exports = {
   calcBollingerBandExtreme,
   calcLiquiditySweepFade,
   splitTwinLots,
-  calcTwinTakeProfits
+  calcTwinTakeProfits,
+  calcLockProfitSL
 };
 
 if (require.main === module) {

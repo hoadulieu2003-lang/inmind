@@ -18,6 +18,8 @@
     },
     "breakeven": {
       "enabled": true,
+      "mode": "PROFIT_LOCK_05R",
+      "lockProfitR": 0.5,
       "triggerRR": 1.0,
       "lockTicketBOnTicketATarget": true,
       "spreadBufferUSD": {

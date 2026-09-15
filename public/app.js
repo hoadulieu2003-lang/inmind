@@ -283,7 +283,7 @@ function renderLivePositions() {
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
           <span class="text-muted">Trạng thái rủi ro:</span>
           <span style="font-weight: 600; color: ${isProfit ? '#16a34a' : '#ea580c'};">
-            ${isProfit ? '🛡️ Free-Ride (Đã khóa hòa vốn)' : '⏳ Đang gồng vị thế cơ sở'}
+            ${isProfit ? '🛡️ Profit-Lock (Khóa lãi +0.5R)' : '⏳ Đang gồng vị thế cơ sở'}
           </span>
         </div>
       </div>
