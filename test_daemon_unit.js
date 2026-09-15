@@ -3,6 +3,9 @@ const {
   calcEmaPullback, 
   calcAsianRangeSweep, 
   calcVolumePA, 
+  calcRsiDivergence,
+  calcBollingerBandExtreme,
+  calcLiquiditySweepFade,
   splitTwinLots, 
   calcTwinTakeProfits 
 } = require('./daemon_monitor.js');
@@ -219,7 +222,18 @@ async function runTests() {
     assert('RiskManager duyệt lệnh với R:R = 1.0 (minRiskRewardRatio = 1.0)', posGold.approved === true, `R:R: ${posGold.riskRewardRatio}, Reason: ${posGold.reason || 'OK'}`);
     assert('RiskManager tính toán lot hợp lý theo rủi ro ~$95 USD', posGold.lotSize > 0 && posGold.actualRiskAmount <= 100.0, `Lot: ${posGold.lotSize}, Rủi ro thực tế: $${posGold.actualRiskAmount}`);
 
-    // Kiểm tra Tiered Risk: Top 1 (BETA), Top 2 (ALPHA), Top 3 (DELTA) đạt 2.0% rủi ro
+    // Kiểm tra Tiered Risk: Top 1 (DELTA trên BTC 5.0%), Top 2 (BETA 2.0%), Top 3 (THETA 2.0%), Base (ALPHA 1.0%), Counter-Trend (LAMBDA 0.5%)
+    const posDelta = riskManager.calculatePosition({
+      symbol: 'BTCUSD',
+      strategy: 'ENGINE_DELTA (HALFTREND_ADX)',
+      equity: 10000,
+      entryPrice: 70000,
+      stopLossPrice: 69000,
+      takeProfitPrice: 71000,
+      currentSpread: 1
+    });
+    assert('Top 1 (ENGINE_DELTA trên BTCUSD) được cấp quyền rủi ro 5.0% vốn', posDelta.riskPercent === 5.0 && posDelta.actualRiskAmount === 500, `Risk%: ${posDelta.riskPercent}, USD: $${posDelta.actualRiskAmount}`);
+
     const posBeta = riskManager.calculatePosition({
       symbol: 'BTCUSD',
       strategy: 'ENGINE_BETA (CCI_PULLBACK)',
@@ -229,7 +243,18 @@ async function runTests() {
       takeProfitPrice: 71000,
       currentSpread: 1
     });
-    assert('Top 1 (ENGINE_BETA) được cấp quyền rủi ro 2.0% vốn', posBeta.riskPercent === 2.0 && posBeta.actualRiskAmount === 200, `Risk%: ${posBeta.riskPercent}, USD: $${posBeta.actualRiskAmount}`);
+    assert('Top 2 (ENGINE_BETA) được cấp quyền rủi ro 2.0% vốn', posBeta.riskPercent === 2.0 && posBeta.actualRiskAmount === 200, `Risk%: ${posBeta.riskPercent}, USD: $${posBeta.actualRiskAmount}`);
+
+    const posTheta = riskManager.calculatePosition({
+      symbol: 'GOLD',
+      strategy: 'ENGINE_THETA (EMA_PULLBACK)',
+      equity: 10000,
+      entryPrice: 2000,
+      stopLossPrice: 1990,
+      takeProfitPrice: 2010,
+      currentSpread: 0.2
+    });
+    assert('Top 3 (ENGINE_THETA) được cấp quyền rủi ro 2.0% vốn', posTheta.riskPercent === 2.0 && posTheta.actualRiskAmount === 200, `Risk%: ${posTheta.riskPercent}, USD: $${posTheta.actualRiskAmount}`);
 
     const posAlpha = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -240,35 +265,24 @@ async function runTests() {
       takeProfitPrice: 2010,
       currentSpread: 0.2
     });
-    assert('Top 2 (ENGINE_ALPHA) được cấp quyền rủi ro 2.0% vốn', posAlpha.riskPercent === 2.0 && posAlpha.actualRiskAmount === 200, `Risk%: ${posAlpha.riskPercent}, USD: $${posAlpha.actualRiskAmount}`);
+    assert('Động cơ ngoài Top 3 (ENGINE_ALPHA) duy trì rủi ro cơ sở 1.0% vốn', posAlpha.riskPercent === 1.0 && posAlpha.actualRiskAmount === 100, `Risk%: ${posAlpha.riskPercent}, USD: $${posAlpha.actualRiskAmount}`);
 
-    const posDelta = riskManager.calculatePosition({
-      symbol: 'BTCUSD',
-      strategy: 'ENGINE_DELTA (HALFTREND_ADX)',
-      equity: 10000,
-      entryPrice: 70000,
-      stopLossPrice: 69000,
-      takeProfitPrice: 71000,
-      currentSpread: 1
-    });
-    assert('Top 3 (ENGINE_DELTA) được cấp quyền rủi ro 2.0% vốn', posDelta.riskPercent === 2.0 && posDelta.actualRiskAmount === 200, `Risk%: ${posDelta.riskPercent}, USD: $${posDelta.actualRiskAmount}`);
-
-    // Động cơ không thuộc Top 3 (ví dụ ENGINE_THETA) chỉ nhận 1.0% cơ sở
-    const posTheta = riskManager.calculatePosition({
+    const posLambda = riskManager.calculatePosition({
       symbol: 'GOLD',
-      strategy: 'ENGINE_THETA (EMA_PULLBACK)',
+      strategy: 'ENGINE_LAMBDA (RSI_DIV_BB_EXTREME)',
       equity: 10000,
       entryPrice: 2000,
       stopLossPrice: 1990,
-      takeProfitPrice: 2010,
+      takeProfitPrice: 2015,
       currentSpread: 0.2
     });
-    assert('Động cơ ngoài Top 3 (ENGINE_THETA) duy trì rủi ro cơ sở 1.0% vốn', posTheta.riskPercent === 1.0 && posTheta.actualRiskAmount === 100, `Risk%: ${posTheta.riskPercent}, USD: $${posTheta.actualRiskAmount}`);
+    assert('Động cơ Counter-Trend (ENGINE_LAMBDA) áp dụng rủi ro phòng vệ 0.5% vốn', posLambda.riskPercent === 0.5 && posLambda.actualRiskAmount === 50, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
 
     // Kiểm tra checkIsTopRankedStrategy trên TradingDaemon
+    const isDeltaTop = await daemon.checkIsTopRankedStrategy('ENGINE_DELTA (HALFTREND_ADX)', 'BTCUSD');
     const isBetaTop = await daemon.checkIsTopRankedStrategy('ENGINE_BETA (CCI_PULLBACK)');
-    const isThetaTop = await daemon.checkIsTopRankedStrategy('ENGINE_THETA (EMA_PULLBACK)');
-    assert('TradingDaemon.checkIsTopRankedStrategy nhận diện đúng Top 1-3 và từ chối ngoài Top 3', isBetaTop === true && isThetaTop === false, `Beta: ${isBetaTop}, Theta: ${isThetaTop}`);
+    const isUnknownTop = await daemon.checkIsTopRankedStrategy('ENGINE_UNKNOWN');
+    assert('TradingDaemon.checkIsTopRankedStrategy nhận diện đúng Top 1-3 và từ chối ngoài Top 3', isDeltaTop === true && isBetaTop === true && isUnknownTop === false, `Delta: ${isDeltaTop}, Beta: ${isBetaTop}, Unknown: ${isUnknownTop}`);
   }
 
   // TEST 7: Kiểm tra Timing Nến Đã Chốt (WP-03)
@@ -398,6 +412,55 @@ async function runTests() {
     // Case 11.6: Khóa trần tuyệt đối khi đã đủ số tầng tối đa
     const resCap = checkAllowPyramiding(2, 2, protectTrades, true);
     assert('Khóa trần tuyệt đối khi đã đạt số tầng tối đa (2/2)', resCap.allowed === false && resCap.reason === 'CAP_REACHED');
+  }
+
+  // TEST 12: Kiểm tra Thuật Toán Counter-Trend Thuần JS (ENGINE_LAMBDA & ENGINE_OMEGA)
+  console.log('\n--- 12. Kiểm tra Thuật Toán Counter-Trend Thuần JS (LAMBDA & OMEGA) ---');
+  {
+    // 12.1. Kiểm tra Bollinger Bands Extreme (calcBollingerBandExtreme)
+    const bbBars = [];
+    for (let i = 0; i < 25; i++) {
+      bbBars.push({ open: 100, high: 101, low: 99, close: 100 });
+    }
+    // Nến T-1 bung lên trên Upper Band (high 112 >= upper) và đóng nến đỏ quay vào trong dải (close 100 <= upper và < open 104)
+    bbBars[23] = { open: 104, high: 112, low: 99, close: 100 };
+    bbBars[24] = { open: 100, high: 101, low: 99, close: 100 }; // forming bar
+    const bbUpper = calcBollingerBandExtreme(bbBars, 20, 2.5);
+    assert('BB Extreme phát hiện nến bung dải trên (upperSignal = true)', bbUpper.upperSignal === true, `Upper: ${bbUpper.bb ? bbUpper.bb.upper.toFixed(2) : 'N/A'}, High: ${bbBars[23].high}`);
+
+    // Nến bung dải dưới (low 88 <= lower) và rút râu xanh vào trong dải (close 100 >= lower và > open 96)
+    const bbBarsLower = [];
+    for (let i = 0; i < 25; i++) {
+      bbBarsLower.push({ open: 100, high: 101, low: 99, close: 100 });
+    }
+    bbBarsLower[23] = { open: 96, high: 101, low: 88, close: 100 };
+    bbBarsLower[24] = { open: 100, high: 101, low: 99, close: 100 };
+    const bbLower = calcBollingerBandExtreme(bbBarsLower, 20, 2.5);
+    assert('BB Extreme phát hiện nến bung dải dưới (lowerSignal = true)', bbLower.lowerSignal === true, `Lower: ${bbLower.bb ? bbLower.bb.lower.toFixed(2) : 'N/A'}, Low: ${bbBarsLower[23].low}`);
+
+    // 12.2. Kiểm tra ICT/SMC Liquidity Sweep Fade (calcLiquiditySweepFade)
+    const sweepBars = [];
+    for (let i = 0; i < 30; i++) {
+      sweepBars.push({ open: 100, high: 102, low: 98, close: 100 });
+    }
+    // Nến T-1 quét vọt đỉnh 102 lên 106 nhưng đóng cửa đỏ thụt lùi xuống 101 (râu trên 5 / 8 = 62.5% >= 45%)
+    sweepBars[28] = { open: 102, high: 106, low: 98, close: 101 };
+    sweepBars[29] = { open: 101, high: 102, low: 100, close: 101 };
+    const sweepSellRes = calcLiquiditySweepFade(sweepBars, 24);
+    assert('OMEGA Liquidity Sweep phát hiện Bearish Sweep Sell thành công', sweepSellRes.sweepSell === true, `UpperWickRatio: ${sweepSellRes.upperWickRatio.toFixed(2)}`);
+
+    // Nến quét dưới đáy 98 xuống 94 nhưng đóng cửa xanh rút chân lên 99 (râu dưới 5 / 8 = 62.5% >= 45%)
+    sweepBars[28] = { open: 98, high: 102, low: 94, close: 99 };
+    const sweepBuyRes = calcLiquiditySweepFade(sweepBars, 24);
+    assert('OMEGA Liquidity Sweep phát hiện Bullish Sweep Buy thành công', sweepBuyRes.sweepBuy === true, `LowerWickRatio: ${sweepBuyRes.lowerWickRatio.toFixed(2)}`);
+
+    // 12.3. Kiểm tra RSI Divergence (calcRsiDivergence) với tối thiểu 50 nến
+    const rsiBars = [];
+    for (let i = 0; i < 50; i++) {
+      rsiBars.push({ open: 100 + (i % 5), high: 102 + (i % 5), low: 98 + (i % 5), close: 100 + (i % 5) });
+    }
+    const rsiRes = calcRsiDivergence(rsiBars, 14, 24);
+    assert('RSI Divergence tính toán an toàn và trả về cấu trúc chuẩn', typeof rsiRes.rsi === 'number' && typeof rsiRes.bullDiv === 'boolean' && typeof rsiRes.bearDiv === 'boolean', `RSI: ${rsiRes.rsi ? rsiRes.rsi.toFixed(2) : 'N/A'}`);
   }
 
   console.log('\n======================================================================');

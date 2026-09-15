@@ -2458,8 +2458,9 @@ class TradingDaemon {
     const effectiveRisk = deltaSL > 0 ? deltaSL : (effectiveEntry ? Math.abs(effectiveEntry - stopLoss) : 1.0);
     const decimals = (effectiveEntry && effectiveEntry < 500) || (stopLoss && stopLoss < 500) ? 3 : 2;
 
-    const scalperRR = config.risk?.twinOrders?.scalperRR || 1.0;
-    const runnerRR = config.risk?.twinOrders?.runnerRR || 1.5;
+    const isCounterTrend = (strategy || '').toUpperCase().includes('LAMBDA') || (strategy || '').toUpperCase().includes('OMEGA') || (strategy || '').toUpperCase().includes('COUNTER');
+    const scalperRR = isCounterTrend ? (config.counterTrend?.minRiskRewardRatio || 1.5) : (config.risk?.twinOrders?.scalperRR || 1.0);
+    const runnerRR = isCounterTrend ? 2.0 : (config.risk?.twinOrders?.runnerRR || 1.5);
 
     // TP = Entry + (Entry - SL) * 1.0 (Scalper) và Entry + (Entry - SL) * 1.5 (Runner)
     const { tpA, tpB } = calcTwinTakeProfits(action, effectiveEntry, stopLoss, scalperRR, runnerRR, decimals);
@@ -3036,7 +3037,9 @@ class TradingDaemon {
         const riskPercent = riskTier.riskPercent;
         const targetRiskAmount = +(exnessStatus.equity * (riskPercent / 100)).toFixed(2);
 
-        const testTP = signalAction === 'BUY' ? +(close + risk * 1.0).toFixed(decimals) : +(close - risk * 1.0).toFixed(decimals);
+        const isCounterTrend = triggeredStrategy.includes('LAMBDA') || triggeredStrategy.includes('OMEGA');
+        const minRR = isCounterTrend ? (config.counterTrend?.minRiskRewardRatio || 1.5) : 1.0;
+        const testTP = signalAction === 'BUY' ? +(close + risk * minRR).toFixed(decimals) : +(close - risk * minRR).toFixed(decimals);
         const posPlan = riskManager.calculatePosition({
           symbol: asset.name,
           strategy: triggeredStrategy,
@@ -3067,7 +3070,7 @@ class TradingDaemon {
             stopLoss: sl,
             takeProfit: testTP,
             deltaSL: risk,
-            deltaTP: +(risk * 1.0).toFixed(decimals),
+            deltaTP: +(risk * minRR).toFixed(decimals),
             strategy: triggeredStrategy,
             entryPrice: close,
             equity: exnessStatus.equity,
