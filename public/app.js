@@ -830,20 +830,34 @@ function renderStrategyLeaderboard() {
     }
   });
 
+  const isEngineCurrentlyActive = (stratKey, assetSet) => {
+    if (!currentStatus || !currentStatus.activeEngines) return true;
+    const activeEnginesObj = currentStatus.activeEngines;
+    if (assetSet && assetSet.size > 0) {
+      for (const a of assetSet) {
+        const list = activeEnginesObj[a] || (a === 'BTC' ? activeEnginesObj['BTCUSD'] : (a === 'USOIL' ? activeEnginesObj['USOIL'] : null));
+        if (Array.isArray(list) && list.includes(stratKey)) return true;
+      }
+    }
+    return Object.values(activeEnginesObj).some(arr => Array.isArray(arr) && arr.includes(stratKey));
+  };
+
   const stratList = Object.values(strategyMap).map(s => {
     const decisiveTrades = s.wins + s.losses;
     const winRate = decisiveTrades > 0 ? ((s.wins / decisiveTrades) * 100) : (s.closedTrades > 0 ? 50 : 0);
     const pf = s.grossLoss > 0 ? (s.grossProfit / s.grossLoss).toFixed(1) : (s.grossProfit > 0 ? 'Max Alpha' : '0.0');
+    const isActive = isEngineCurrentlyActive(s.key, s.assets);
     return {
       ...s,
       winRate,
-      pf
+      pf,
+      isActive
     };
   });
 
   // Cập nhật số lượng đếm trên tab filter
   const allCount = stratList.length;
-  const liveCount = stratList.filter(s => !s.isShadow).length;
+  const liveCount = stratList.filter(s => !s.isShadow && s.isActive).length;
   const shadowCount = stratList.filter(s => s.isShadow).length;
   if (document.getElementById('countStratAll')) document.getElementById('countStratAll').innerText = allCount;
   if (document.getElementById('countStratLive')) document.getElementById('countStratLive').innerText = liveCount;
@@ -864,6 +878,17 @@ function renderStrategyLeaderboard() {
   const worstCandidates = stratList.filter(s => s.netPnl < 0 || s.losses > 0);
   const worstStrat = worstCandidates.length > 0 ? worstCandidates[worstCandidates.length - 1] : (stratList.length > 1 ? stratList[stratList.length - 1] : null);
   const potentialStrat = stratList.find(s => s !== bestStrat && (s.winRate === 100 || s.netPnl > 0)) || (stratList.length > 2 ? stratList[1] : null);
+
+  const worstIsActive = worstStrat ? worstStrat.isActive : false;
+  const worstBadgeHtml = worstStrat?.isShadow 
+    ? `<span class="badge-tag neutral">🔮 SHADOW A/B</span>` 
+    : (worstIsActive 
+        ? `<span class="badge-tag" style="background:#FEE2E2; color:#991B1B; border:1px solid #F87171; font-weight:700;">⚠️ ĐANG CHẠY LIVE</span>` 
+        : `<span class="badge-tag neutral" style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1; font-weight:700;">⏸️ ĐÃ DỪNG (LỊCH SỬ)</span>`);
+
+  const worstRecHtml = worstIsActive
+    ? `<span><strong>KHUYẾN NGHỊ:</strong> Nên tạm dừng hoặc lọc bỏ khỏi config.json để tránh lỗ thêm</span>`
+    : `<span><strong>TRẠNG THÁI:</strong> <strong class="text-green">✅ ĐÃ TẮT KHỎI CONFIG.JSON</strong> • Hệ thống đã ngắt lệnh live, lưu lại dữ liệu lịch sử</span>`;
 
   const isPotentialTopTier = potentialStrat && (potentialStrat.overallRank <= 3);
   const potentialBadgeHtml = isPotentialTopTier
@@ -918,13 +943,13 @@ function renderStrategyLeaderboard() {
 
     <!-- Card 2: YẾU NHẤT / CẦN LỌC BỎ -->
     <div class="spotlight-card worst">
-      <div class="spotlight-header">
-        <span class="spotlight-tag worst">⚠️ CẦN THEO DÕI / LỌC BỎ</span>
-        <span class="badge-tag neutral">${worstStrat?.isShadow ? 'SHADOW A/B' : 'LIVE EXNESS'}</span>
+      <div class="spotlight-header" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span class="spotlight-tag worst">${worstIsActive ? '⚠️ CẦN THEO DÕI / LỌC BỎ' : '⏸️ ĐÃ TẮT / LỊCH SỬ'}</span>
+        ${worstBadgeHtml}
       </div>
       <div>
         <div class="spotlight-name">${worstStrat ? worstStrat.displayName : 'Chưa có chiến lược yếu'}</div>
-        <p class="spotlight-desc">Tài sản chịu áp lực: <strong>${worstStrat ? Array.from(worstStrat.assets).join(', ') : 'N/A'}</strong>. Hiệu suất sụt giảm hoặc tỷ lệ thua cao.</p>
+        <p class="spotlight-desc">Tài sản: <strong>${worstStrat ? Array.from(worstStrat.assets).join(', ') : 'N/A'}</strong>. ${worstIsActive ? 'Hiệu suất sụt giảm hoặc tỷ lệ thua cao.' : 'Động cơ đã được gỡ bỏ khỏi phiên giao dịch live, chỉ lưu dữ liệu kiểm toán.'}</p>
       </div>
       <div class="spotlight-metrics">
         <div class="spotlight-metric-col">
@@ -940,9 +965,9 @@ function renderStrategyLeaderboard() {
           <strong class="spotlight-metric-val mono text-red">${worstStrat && worstStrat.netR >= 0 ? '+' : ''}${worstStrat ? worstStrat.netR.toFixed(2) : '0'}R</strong>
         </div>
       </div>
-      <div class="spotlight-action drop">
+      <div class="spotlight-action ${worstIsActive ? 'drop' : 'keep'}">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        <span><strong>KHUYẾN NGHỊ:</strong> Duy trì rủi ro cơ sở 2.0% hoặc tạm dừng nếu tiếp tục thua</span>
+        ${worstRecHtml}
       </div>
     </div>
 
@@ -1045,7 +1070,10 @@ function renderStrategyLeaderboard() {
     // Phân loại & Đánh giá
     let statusPill = '';
     let recommendation = '';
-    if (s.key.includes('LAMBDA') || s.key.includes('OMEGA') || s.key.includes('COUNTER')) {
+    if (!s.isActive && !s.isShadow) {
+      statusPill = `<span class="status-pill" style="background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1;">⏸️ ĐÃ DỪNG</span>`;
+      recommendation = `<strong class="text-muted">Đã loại khỏi config.json</strong> • Bảo toàn vốn an toàn`;
+    } else if (s.key.includes('LAMBDA') || s.key.includes('OMEGA') || s.key.includes('COUNTER')) {
       statusPill = `<span class="status-pill" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE;">⚡ LỆCH XU HƯỚNG</span>`;
       recommendation = `<strong class="text-blue">⚡ Đánh lệch xu hướng (0.5% Vốn)</strong> • Bắt đỉnh/đáy kiệt sức`;
     } else if (rank === 1 && s.netPnl > 0) {
@@ -1084,8 +1112,8 @@ function renderStrategyLeaderboard() {
         <div class="mono" style="font-size: 10px; color: var(--text-muted);">${s.key}</div>
       </td>
       <td>
-        <span class="badge-tag ${s.isShadow ? 'neutral' : 'live'}" style="font-size: 10px;">
-          ${s.isShadow ? '🔮 SHADOW' : '🟢 LIVE'}
+        <span class="badge-tag ${s.isShadow ? 'neutral' : (s.isActive ? 'live' : 'neutral')}" style="font-size: 10px; ${!s.isActive && !s.isShadow ? 'background:#F1F5F9; color:#64748B; border:1px solid #CBD5E1;' : ''}">
+          ${s.isShadow ? '🔮 SHADOW' : (s.isActive ? '🟢 LIVE' : '⏸️ ĐÃ TẮT')}
         </span>
       </td>
       <td class="mono" style="font-size: 12px; font-weight: 700;">${Array.from(s.assets).join(', ')}</td>

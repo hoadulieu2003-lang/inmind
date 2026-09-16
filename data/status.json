@@ -1,12 +1,12 @@
 {
   "daemonActive": true,
-  "lastHeartbeatTime": 1789540637924,
-  "lastHeartbeatStr": "13:37:17",
-  "equity": 10801.58,
+  "lastHeartbeatTime": 1789541109010,
+  "lastHeartbeatStr": "13:45:09",
+  "equity": 10758.16,
   "balance": 11001.16,
   "initialBalance": 9388.75,
-  "netPnL": 1412.83,
-  "roi": 15.05,
+  "netPnL": 1369.41,
+  "roi": 14.59,
   "today": {
     "date": "2026-09-16",
     "dateLabel": "16/09/2026",
@@ -26,10 +26,10 @@
   },
   "allTime": {
     "initialBalance": 9388.75,
-    "equity": 10801.58,
+    "equity": 10758.16,
     "balance": 11001.16,
-    "netPnL": 1412.83,
-    "roi": 15.05,
+    "netPnL": 1369.41,
+    "roi": 14.59,
     "winRate": 61.7,
     "wins": 29,
     "losses": 18,
@@ -50,8 +50,8 @@
       "side": "Sell",
       "lot": 1,
       "openPrice": 75630.06,
-      "currentPrice": 75829.64,
-      "floatingPnl": -199.58,
+      "currentPrice": 75873.06,
+      "floatingPnl": -243,
       "ticketCount": 2,
       "layersCount": 1,
       "isProfitLocked": false,
@@ -60,10 +60,10 @@
       "lockedProfitUSD": null
     }
   ],
-  "freeMargin": 10612.5,
-  "marginLevel": 5712.7,
-  "lastScanTime": "13:30:08",
-  "nextScanSeconds": 467,
+  "freeMargin": 10569.08,
+  "marginLevel": 5689.74,
+  "lastScanTime": "13:45:08",
+  "nextScanSeconds": 896,
   "twinOrders": {
     "enabled": true,
     "scalperRR": 1,
@@ -141,14 +141,14 @@
   "assets": {
     "BTCUSD": {
       "symbol": "BITSTAMP:BTCUSD",
-      "price": 75854.38,
-      "ema200": 76179.06,
+      "price": 75870.13,
+      "ema200": 76167.16,
       "regime": "BEARISH (CHỈ BÁN)",
       "utStop": 75639.9,
-      "atr": 147.52,
+      "atr": 145.54,
       "squeeze": "FIRED (Bung nén)",
-      "mom": 120.541,
-      "cci": 63.3,
+      "mom": 109.7129,
+      "cci": 24.16,
       "activePosition": true
     }
   },

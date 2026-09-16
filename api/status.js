@@ -92,9 +92,11 @@ module.exports = async (req, res) => {
       lockTicketBOnTicketATarget: true
     },
     activeEngines: {
-      GOLD: ["ENGINE_THETA", "ENGINE_BETA", "ENGINE_ALPHA"],
-      USOIL: ["ENGINE_EPSILON", "ENGINE_BETA"],
-      BTCUSD: ["ENGINE_BETA", "ENGINE_KAPPA", "ENGINE_ALPHA"]
+      BTCUSD: ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_OMEGA"],
+      USDJPY: ["ENGINE_EPSILON", "ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
+      GOLD: ["ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
+      GBPUSD: ["ENGINE_ALPHA"],
+      US500: ["ENGINE_ALPHA"]
     },
     assets: {
       GOLD: { symbol: 'TVC:GOLD', price: 4305.99, ema200: 4303.3, regime: 'BULLISH', utStop: 4296.2, squeeze: 'ON (Nén)', mom: 1.2, activePosition: false },
