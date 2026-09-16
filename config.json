@@ -45,18 +45,32 @@
       "enabled": true,
       "rank1Strategy": "ENGINE_DELTA",
       "rank1RiskPercent": 10.0,
-      "rank1AssetWhitelist": ["BTCUSD", "BTC", "USDJPY", "GOLD"],
+      "rank1AssetWhitelist": [
+        "BTCUSD",
+        "BTC"
+      ],
       "rank1SecondaryCapPercent": 5.0,
       "rank2Strategies": [
         "ENGINE_BETA"
       ],
       "rank2RiskPercent": 5.0,
+      "rank3Strategies": [
+        "ENGINE_ALPHA",
+        "ENGINE_OMEGA"
+      ],
+      "rank3RiskPercent": 5.0,
       "baseRiskPercent": 2.0,
-      "topRanksAllowed": [1, 2],
+      "topRanksAllowed": [
+        1,
+        2,
+        3
+      ],
       "topRankRiskPercent": 10.0,
       "topStrategies": [
         "ENGINE_DELTA",
-        "ENGINE_BETA"
+        "ENGINE_BETA",
+        "ENGINE_ALPHA",
+        "ENGINE_OMEGA"
       ]
     }
   },
@@ -73,8 +87,8 @@
     "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_OMEGA"],
     "USDJPY": ["ENGINE_EPSILON", "ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
     "GOLD": ["ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
-    "GBPUSD": ["ENGINE_BETA", "ENGINE_ALPHA"],
-    "US500": ["ENGINE_DELTA", "ENGINE_ALPHA"]
+    "GBPUSD": ["ENGINE_ALPHA"],
+    "US500": ["ENGINE_ALPHA"]
   },
   "symbols": {
     "GOLD": {
@@ -111,8 +125,18 @@
       "exnessSymbol": "GBP/USD",
       "tvSymbol": "FX:GBPUSD",
       "watchlistKey": "GBPUSD",
+      "utKey": 3,
       "minAtrBuffer": 0.0015,
-      "minAdxThreshold": 22.0
+      "minAdxThreshold": 22.0,
+      "sessionFilter": {
+        "enabled": true,
+        "allowedWindowsVN": [
+          { "start": "19:30", "end": "22:45", "desc": "New York Prime & London 4 PM Fix" }
+        ],
+        "blackoutWindowsVN": [
+          { "start": "22:45", "end": "19:30", "desc": "Phiên Đêm, Á & Âu Kiệt Thanh Khoản" }
+        ]
+      }
     },
     "USDJPY": {
       "name": "USDJPY",
@@ -144,10 +168,12 @@
       "minAdxThreshold": 22.0,
       "sessionFilter": {
         "enabled": true,
-        "allowedHoursVN": [19, 20, 21, 22, 23],
-        "startMinute": 30,
-        "endMinute": 30,
-        "description": "Chỉ kích hoạt phiên New York 19:30 - 23:30 VN"
+        "allowedWindowsVN": [
+          { "start": "20:30", "end": "02:00", "desc": "US Cash Open & New York Prime" }
+        ],
+        "blackoutWindowsVN": [
+          { "start": "02:00", "end": "20:30", "desc": "Tử Địa Phiên Á & Âu Kiệt Thanh Khoản" }
+        ]
       }
     }
   },

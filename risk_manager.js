@@ -77,14 +77,19 @@ class RiskManager {
       const tiered = this.config.risk.tieredRisk;
       const sUpper = strategy.toUpperCase();
       const rank1Key = (tiered.rank1Strategy || 'ENGINE_DELTA').toUpperCase();
-      const rank2List = (tiered.rank2Strategies || tiered.rank2And3Strategies || ['ENGINE_BETA', 'ENGINE_THETA']).map(k => k.toUpperCase());
+      const rank2List = (tiered.rank2Strategies || ['ENGINE_BETA']).map(k => k.toUpperCase());
+      const rank3List = (tiered.rank3Strategies || ['ENGINE_ALPHA', 'ENGINE_OMEGA']).map(k => k.toUpperCase());
+      const rank2And3List = (tiered.rank2And3Strategies || []).map(k => k.toUpperCase());
 
       if (sUpper.includes(rank1Key) || sUpper.includes(rank1Key.replace('ENGINE_', ''))) {
         const whitelist = (tiered.rank1AssetWhitelist || ['BTCUSD', 'BTC']).map(w => w.toUpperCase());
         const isWhitelistedAsset = whitelist.some(w => s.includes(w));
         effectiveRiskPercent = isWhitelistedAsset ? (tiered.rank1RiskPercent || 10.0) : (tiered.rank1SecondaryCapPercent || 5.0);
       } else if (rank2List.some(k => sUpper.includes(k) || sUpper.includes(k.replace('ENGINE_', '')))) {
-        effectiveRiskPercent = tiered.rank2RiskPercent || tiered.rank2And3RiskPercent || 5.0;
+        effectiveRiskPercent = tiered.rank2RiskPercent || 5.0;
+      } else if (rank3List.some(k => sUpper.includes(k) || sUpper.includes(k.replace('ENGINE_', ''))) ||
+                 rank2And3List.some(k => sUpper.includes(k) || sUpper.includes(k.replace('ENGINE_', '')))) {
+        effectiveRiskPercent = tiered.rank3RiskPercent || tiered.rank2And3RiskPercent || 5.0;
       }
     }
     if (!effectiveRiskPercent && strategy) {
@@ -111,9 +116,13 @@ class RiskManager {
     const step = this.config.risk.lotStep || 0.01;
     let lotSize = Math.floor(rawLot / step) * step;
 
-    // Giới hạn an toàn (min 0.01, max 2.00 cho Forex/Crypto/Vàng, max 20.00 cho US500)
+    // Giới hạn an toàn (min 0.01, max 2.00 cho Crypto/Vàng, max 5.00 cho Forex, max 20.00 cho US500)
     const configuredMaxLot = this.config.risk.maxLotSize || 2.00;
-    const maxLot = (s.includes('US500') || s.includes('SPX')) ? Math.max(20.00, configuredMaxLot) : configuredMaxLot;
+    const isForexPair = s.includes('GBP') || s.includes('EUR') || s.includes('JPY');
+    const isIndex = s.includes('US500') || s.includes('SPX');
+    const maxLot = isIndex 
+      ? Math.max(20.00, configuredMaxLot) 
+      : (isForexPair ? Math.max(5.00, configuredMaxLot) : configuredMaxLot);
     lotSize = Math.max(this.config.risk.minLotSize || 0.01, Math.min(maxLot, lotSize));
     lotSize = +lotSize.toFixed(2);
 

@@ -414,11 +414,15 @@ function calcLockProfitSL(action, entryPrice, stopLoss, lockR = 0.5, spreadBuffe
 function calcDynSlBuffer(symbolName, atr, minAtrBuffer) {
   const s = (symbolName || '').toUpperCase();
   if (s.includes('GOLD') || s.includes('XAU')) {
-    return Math.max(0.40 * (atr || 12.0), minAtrBuffer || 4.5);
+    return +Math.max(0.40 * (atr || 12.0), minAtrBuffer || 4.5).toFixed(4);
   } else if (s.includes('JPY')) {
-    return Math.max(1.0 * (atr || 0.10), minAtrBuffer || 0.15);
+    return +Math.max(1.0 * (atr || 0.10), minAtrBuffer || 0.15).toFixed(4);
   } else if (s.includes('BTC')) {
-    return Math.max(1.0 * (atr || 250), minAtrBuffer || 250);
+    return +Math.max(1.0 * (atr || 250), minAtrBuffer || 250).toFixed(2);
+  } else if (s.includes('GBP')) {
+    return +Math.max(1.5 * (atr || 0.0010), minAtrBuffer || 0.0015).toFixed(5);
+  } else if (s.includes('US500') || s.includes('SPX')) {
+    return +Math.max(0.60 * (atr || 7.0), minAtrBuffer || 5.0).toFixed(2);
   } else {
     return minAtrBuffer || 2.0;
   }
@@ -532,7 +536,7 @@ class TradingDaemon {
       { name: 'GOLD', exnessSymbol: 'XAU/USD', tvSymbol: 'TVC:GOLD', watchlistKey: 'GOLD', minAtrBuffer: 2.5, utKey: 2, utPeriod: 10 },
       { name: 'BTCUSD', exnessSymbol: 'BTC', tvSymbol: 'BITSTAMP:BTCUSD', watchlistKey: 'BTC', minAtrBuffer: 250, utKey: 2, utPeriod: 10 },
       { name: 'USDJPY', exnessSymbol: 'USD/JPY', tvSymbol: 'FX:USDJPY', watchlistKey: 'USDJPY', minAtrBuffer: 0.15, utKey: 2, utPeriod: 10 },
-      { name: 'GBPUSD', exnessSymbol: 'GBP/USD', tvSymbol: 'FX:GBPUSD', watchlistKey: 'GBPUSD', minAtrBuffer: 0.0015, utKey: 2, utPeriod: 10 },
+      { name: 'GBPUSD', exnessSymbol: 'GBP/USD', tvSymbol: 'FX:GBPUSD', watchlistKey: 'GBPUSD', minAtrBuffer: 0.0015, utKey: 3, utPeriod: 10 },
       { name: 'US500', exnessSymbol: 'US500', tvSymbol: 'SP:SPX', watchlistKey: 'SPX', minAtrBuffer: 5.0, utKey: 2, utPeriod: 10 }
     ];
     this.symbols = defaultSymbols.map(s => {
@@ -2686,18 +2690,20 @@ class TradingDaemon {
     };
   }
 
-  // WP-TIERED-RISK: Động cơ Quân Vương Hạng 1 (10.0% Vốn), Top 2 (5.0% Vốn), Còn lại (2.0% Vốn)
+  // WP-TIERED-RISK: Động cơ Quân Vương Hạng 1 (10.0% Vốn), Top 2 (5.0% Vốn), Top 3 (5.0% Vốn), Còn lại (2.0% Vốn)
   async getStrategyRiskTier(strategy, assetName = '') {
     const tieredRiskCfg = config.risk?.tieredRisk || {
       enabled: true,
       rank1Strategy: 'ENGINE_DELTA',
       rank1RiskPercent: 10.0,
-      rank1AssetWhitelist: ['BTCUSD', 'BTC', 'USDJPY', 'GOLD'],
+      rank1AssetWhitelist: ['BTCUSD', 'BTC'],
       rank1SecondaryCapPercent: 5.0,
       rank2Strategies: ['ENGINE_BETA'],
       rank2RiskPercent: 5.0,
+      rank3Strategies: ['ENGINE_ALPHA', 'ENGINE_OMEGA'],
+      rank3RiskPercent: 5.0,
       baseRiskPercent: 2.0,
-      topStrategies: ['ENGINE_DELTA', 'ENGINE_BETA']
+      topStrategies: ['ENGINE_DELTA', 'ENGINE_BETA', 'ENGINE_ALPHA', 'ENGINE_OMEGA']
     };
 
     if (!tieredRiskCfg.enabled) {
@@ -2707,14 +2713,10 @@ class TradingDaemon {
     const stratUpper = (strategy || '').toUpperCase();
     const assetUpper = (assetName || '').toUpperCase();
 
-    // 0. Kiểm tra Động cơ Đánh Lệch Xu Hướng (Counter-Trend Engines: 2.0% Vốn)
-    if (stratUpper.includes('LAMBDA') || stratUpper.includes('OMEGA') || stratUpper.includes('COUNTER')) {
-      const ctRisk = config.counterTrend?.riskPercent || 2.0;
-      return { rank: 5, riskPercent: ctRisk, title: `⚡ ĐÁNH LỆCH XU HƯỚNG (${ctRisk}% VỐN)` };
-    }
-
     const rank1Key = (tieredRiskCfg.rank1Strategy || 'ENGINE_DELTA').toUpperCase();
-    const rank2Keys = (tieredRiskCfg.rank2Strategies || tieredRiskCfg.rank2And3Strategies || ['ENGINE_BETA']).map(s => s.toUpperCase());
+    const rank2Keys = (tieredRiskCfg.rank2Strategies || ['ENGINE_BETA']).map(s => s.toUpperCase());
+    const rank3Keys = (tieredRiskCfg.rank3Strategies || ['ENGINE_ALPHA', 'ENGINE_OMEGA']).map(s => s.toUpperCase());
+    const rank2And3Keys = (tieredRiskCfg.rank2And3Strategies || []).map(s => s.toUpperCase());
 
     const whitelist = (tieredRiskCfg.rank1AssetWhitelist || ['BTCUSD', 'BTC']).map(w => w.toUpperCase());
     const isWhitelistedAsset = assetUpper ? whitelist.some(w => assetUpper.includes(w)) : true;
@@ -2733,7 +2735,13 @@ class TradingDaemon {
       return { rank: 2, riskPercent: tieredRiskCfg.rank2RiskPercent || 5.0, title: `⚡ HẠNG 2 (${tieredRiskCfg.rank2RiskPercent || 5.0}%)` };
     }
 
-    // 3. Dynamic Fallback từ SQLite
+    // 3. Kiểm tra Hạng 3 (5.0% Vốn)
+    if (rank3Keys.some(k => stratUpper.includes(k) || stratUpper.includes(k.replace('ENGINE_', ''))) ||
+        rank2And3Keys.some(k => stratUpper.includes(k) || stratUpper.includes(k.replace('ENGINE_', '')))) {
+      return { rank: 3, riskPercent: tieredRiskCfg.rank3RiskPercent || 5.0, title: `⚡ HẠNG 3 (${tieredRiskCfg.rank3RiskPercent || 5.0}%)` };
+    }
+
+    // 4. Dynamic Fallback từ SQLite
     try {
       const trades = await db.getAllTrades();
       const closedTrades = trades.filter(t => t.status === 'WIN' || t.status === 'LOSS' || (typeof t.pnl === 'number' && t.pnl !== 0));
@@ -2759,9 +2767,19 @@ class TradingDaemon {
           if (top2.some(k => stratUpper.includes(k) || k.includes(stratUpper.split('(')[0].trim()))) {
             return { rank: 2, riskPercent: tieredRiskCfg.rank2RiskPercent || 5.0, title: `⚡ HẠNG 2 DYNAMIC (${tieredRiskCfg.rank2RiskPercent || 5.0}%)` };
           }
+          const top3 = sorted.slice(2, 3).map(e => e[0]);
+          if (top3.some(k => stratUpper.includes(k) || k.includes(stratUpper.split('(')[0].trim()))) {
+            return { rank: 3, riskPercent: tieredRiskCfg.rank3RiskPercent || 5.0, title: `⚡ HẠNG 3 DYNAMIC (${tieredRiskCfg.rank3RiskPercent || 5.0}%)` };
+          }
         }
       }
     } catch (e) {}
+
+    // 5. Kiểm tra Động cơ Đánh Lệch Xu Hướng (Counter-Trend Engines: 2.0% Vốn - fallback nếu không thuộc Top 1-3)
+    if (stratUpper.includes('LAMBDA') || stratUpper.includes('OMEGA') || stratUpper.includes('COUNTER')) {
+      const ctRisk = config.counterTrend?.riskPercent || 2.0;
+      return { rank: 5, riskPercent: ctRisk, title: `⚡ ĐÁNH LỆCH XU HƯỚNG (${ctRisk}% VỐN)` };
+    }
 
     return { rank: 4, riskPercent: tieredRiskCfg.baseRiskPercent || 2.0, title: `TIÊU CHUẨN ${tieredRiskCfg.baseRiskPercent || 2.0}%` };
   }
@@ -3083,6 +3101,20 @@ class TradingDaemon {
         }
       });
 
+      if (!this.latestAssetsState) this.latestAssetsState = {};
+      this.latestAssetsState[asset.name] = {
+        symbol: asset.tvSymbol,
+        price: close,
+        ema200: +dema.toFixed(2),
+        regime,
+        utStop: data.utBot?.stop,
+        atr: data.utBot?.atr,
+        squeeze: ttm ? (ttm.isSqueezing ? 'ON (Nén)' : (ttm.justFired ? 'FIRED (Bung nén)' : 'OFF')) : 'OFF',
+        mom: ttm?.momentum,
+        cci: cci?.current,
+        activePosition: totalAssetTickets > 0
+      };
+
       const currentLayersCount = Math.ceil(totalAssetTickets / 2);
       const maxLayersAllowed = pyramidingConfig.enabled ? (pyramidingConfig.maxLayersPerAsset || 2) : 1;
 
@@ -3139,9 +3171,9 @@ class TradingDaemon {
         asset.name === 'GOLD' ? ["ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"] :
         asset.name === 'USDJPY' ? ["ENGINE_EPSILON", "ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"] :
         asset.name === 'BTCUSD' ? ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_OMEGA"] :
-        asset.name === 'GBPUSD' ? ["ENGINE_BETA", "ENGINE_ALPHA"] :
-        asset.name === 'US500' ? ["ENGINE_DELTA", "ENGINE_ALPHA"] :
-        ["ENGINE_BETA", "ENGINE_ALPHA"]
+        asset.name === 'GBPUSD' ? ["ENGINE_ALPHA"] :
+        asset.name === 'US500' ? ["ENGINE_ALPHA"] :
+        ["ENGINE_ALPHA"]
       );
       const allowDelta = assetEngines.includes('ENGINE_DELTA');
       const allowZeta = assetEngines.includes('ENGINE_ZETA');
@@ -3426,6 +3458,7 @@ class TradingDaemon {
           riskPercent: riskPercent,
           entryPrice: close,
           stopLossPrice: sl,
+          takeProfitPrice: testTP,
           currentSpread: (asset.name.includes('GBP') || asset.name.includes('EUR')) ? 0.00015 : (asset.name.includes('JPY') ? 0.015 : (asset.name.includes('US500') ? 0.50 : (asset.name.includes('BTC') ? 25.0 : (asset.maxSpreadUSD ? asset.maxSpreadUSD * 0.6 : 0.20))))
         });
 
@@ -3610,6 +3643,39 @@ module.exports = {
   checkSessionFilter
 };
 
+// WP-SINGLE-INSTANCE: Khóa đơn phiên (Single-Instance PID Lockfile Guard)
+const PID_FILE = path.join(__dirname, 'daemon.pid');
+
+function acquireSingleInstanceLock() {
+  if (fs.existsSync(PID_FILE)) {
+    try {
+      const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10);
+      if (oldPid && oldPid !== process.pid) {
+        try {
+          process.kill(oldPid, 0);
+          console.error(`🚨 [INSTANCE GUARD] Một tiến trình daemon_monitor khác (PID ${oldPid}) đang chạy! Không khởi động bản sao thứ hai.`);
+          return false;
+        } catch (e) {
+          // PID cũ đã dừng (stale lock), tiếp tục khởi động
+        }
+      }
+    } catch (e) {}
+  }
+  try {
+    fs.writeFileSync(PID_FILE, String(process.pid));
+    process.on('exit', () => {
+      try {
+        if (fs.existsSync(PID_FILE) && parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10) === process.pid) {
+          fs.unlinkSync(PID_FILE);
+        }
+      } catch (e) {}
+    });
+  } catch (e) {}
+  return true;
+}
+
 if (require.main === module) {
-  runSupervisor();
+  if (acquireSingleInstanceLock()) {
+    runSupervisor();
+  }
 }

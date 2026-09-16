@@ -1,12 +1,12 @@
 {
   "daemonActive": true,
-  "lastHeartbeatTime": 1789531859651,
-  "lastHeartbeatStr": "11:10:59",
-  "equity": 10799.28,
+  "lastHeartbeatTime": 1789536995104,
+  "lastHeartbeatStr": "12:36:35",
+  "equity": 10778.96,
   "balance": 11001.16,
   "initialBalance": 9388.75,
-  "netPnL": 1410.53,
-  "roi": 15.02,
+  "netPnL": 1390.21,
+  "roi": 14.81,
   "today": {
     "date": "2026-09-16",
     "dateLabel": "16/09/2026",
@@ -26,10 +26,10 @@
   },
   "allTime": {
     "initialBalance": 9388.75,
-    "equity": 10799.28,
+    "equity": 10778.96,
     "balance": 11001.16,
-    "netPnL": 1410.53,
-    "roi": 15.02,
+    "netPnL": 1390.21,
+    "roi": 14.81,
     "winRate": 61.7,
     "wins": 29,
     "losses": 18,
@@ -50,8 +50,8 @@
       "side": "Sell",
       "lot": 1,
       "openPrice": 75630.06,
-      "currentPrice": 75831.94,
-      "floatingPnl": -201.88,
+      "currentPrice": 75852.26,
+      "floatingPnl": -222.2,
       "ticketCount": 2,
       "layersCount": 1,
       "isProfitLocked": false,
@@ -60,10 +60,10 @@
       "lockedProfitUSD": null
     }
   ],
-  "freeMargin": 10610.2,
-  "marginLevel": 5711.49,
-  "lastScanTime": "11:10:44",
-  "nextScanSeconds": 245,
+  "freeMargin": 10589.88,
+  "marginLevel": 5700.74,
+  "lastScanTime": "12:35:15",
+  "nextScanSeconds": 510,
   "twinOrders": {
     "enabled": true,
     "scalperRR": 1,
@@ -79,24 +79,30 @@
     "rank1RiskPercent": 10,
     "rank1AssetWhitelist": [
       "BTCUSD",
-      "BTC",
-      "USDJPY",
-      "GOLD"
+      "BTC"
     ],
     "rank1SecondaryCapPercent": 5,
     "rank2Strategies": [
       "ENGINE_BETA"
     ],
     "rank2RiskPercent": 5,
+    "rank3Strategies": [
+      "ENGINE_ALPHA",
+      "ENGINE_OMEGA"
+    ],
+    "rank3RiskPercent": 5,
     "baseRiskPercent": 2,
     "topRanksAllowed": [
       1,
-      2
+      2,
+      3
     ],
     "topRankRiskPercent": 10,
     "topStrategies": [
       "ENGINE_DELTA",
-      "ENGINE_BETA"
+      "ENGINE_BETA",
+      "ENGINE_ALPHA",
+      "ENGINE_OMEGA"
     ]
   },
   "activeEngines": {
@@ -117,11 +123,9 @@
       "ENGINE_ALPHA"
     ],
     "GBPUSD": [
-      "ENGINE_BETA",
       "ENGINE_ALPHA"
     ],
     "US500": [
-      "ENGINE_DELTA",
       "ENGINE_ALPHA"
     ]
   },
@@ -134,5 +138,18 @@
     "requireDifferentEngine": false
   },
   "maxDailyLossPercent": 20,
-  "assets": {}
+  "assets": {
+    "BTCUSD": {
+      "symbol": "BITSTAMP:BTCUSD",
+      "price": 75820.94,
+      "ema200": 76226.24,
+      "regime": "BEARISH (CHỈ BÁN)",
+      "utStop": 75514.12,
+      "atr": 173.08,
+      "squeeze": "ON (Nén)",
+      "mom": 88.11,
+      "cci": 31.4,
+      "activePosition": true
+    }
+  }
 }

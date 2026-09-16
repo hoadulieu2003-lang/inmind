@@ -231,8 +231,8 @@ async function runTests() {
     assert('KAPPA từ chối khi volume không đạt chuẩn (< 1.25x)', kappaLowVol.buySignal === false);
   }
 
-  // TEST 6: Kiểm tra Tính Toán Vị Thế RiskManager & Phân Tầng Rủi Ro (Tiered Risk 2% Top 1-3 & 1% Cơ sở)
-  console.log('\n--- 6. Kiểm tra RiskManager & Tiered Risk (Top 1-3 2.0% & Cơ sở 1.0%) ---');
+  // TEST 6: Kiểm tra Tính Toán Vị Thế RiskManager & Phân Tầng Rủi Ro (Top 1: 10% BTC/5% Phi-BTC, Top 2-3: 5.0%, Cơ sở: 2.0%)
+  console.log('\n--- 6. Kiểm tra RiskManager & Tiered Risk (Top 1: 10% BTC/5% Phi-BTC, Top 2-3: 5.0%, Cơ sở: 2.0%) ---');
   {
     const posGold = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -246,7 +246,7 @@ async function runTests() {
     assert('RiskManager duyệt lệnh với R:R = 1.0 (minRiskRewardRatio = 1.0)', posGold.approved === true, `R:R: ${posGold.riskRewardRatio}, Reason: ${posGold.reason || 'OK'}`);
     assert('RiskManager tính toán lot hợp lý theo rủi ro ~$95 USD', posGold.lotSize > 0 && posGold.actualRiskAmount <= 100.0, `Lot: ${posGold.lotSize}, Rủi ro thực tế: $${posGold.actualRiskAmount}`);
 
-    // Kiểm tra Tiered Risk: Top 1 (DELTA trên BTC 10.0%), Top 2 (BETA 5.0%), Top 3/Cơ sở (ALPHA 2.0%), Counter-Trend (LAMBDA/OMEGA 2.0%)
+    // Kiểm tra Tiered Risk: Top 1 (DELTA trên BTC 10.0%, Phi-BTC 5.0%), Top 2 (BETA 5.0%), Top 3 (ALPHA 5.0%, OMEGA 5.0%), Cơ sở (THETA 2.0%), Counter-Trend (LAMBDA 2.0%)
     const posDelta = riskManager.calculatePosition({
       symbol: 'BTCUSD',
       strategy: 'ENGINE_DELTA (HALFTREND_ADX)',
@@ -257,6 +257,17 @@ async function runTests() {
       currentSpread: 1
     });
     assert('Top 1 (ENGINE_DELTA trên BTCUSD) được cấp quyền rủi ro 10.0% vốn', posDelta.riskPercent === 10.0 && posDelta.actualRiskAmount === 1000, `Risk%: ${posDelta.riskPercent}, USD: $${posDelta.actualRiskAmount}`);
+
+    const posDeltaGold = riskManager.calculatePosition({
+      symbol: 'GOLD',
+      strategy: 'ENGINE_DELTA (HALFTREND_ADX)',
+      equity: 10000,
+      entryPrice: 2000,
+      stopLossPrice: 1990,
+      takeProfitPrice: 2010,
+      currentSpread: 0.2
+    });
+    assert('Top 1 (ENGINE_DELTA trên Phi-BTC) khóa trần an toàn 5.0% vốn', posDeltaGold.riskPercent === 5.0 && posDeltaGold.actualRiskAmount === 500, `Risk%: ${posDeltaGold.riskPercent}, USD: $${posDeltaGold.actualRiskAmount}`);
 
     const posBeta = riskManager.calculatePosition({
       symbol: 'BTCUSD',
@@ -269,17 +280,6 @@ async function runTests() {
     });
     assert('Top 2 (ENGINE_BETA) được cấp quyền rủi ro 5.0% vốn', posBeta.riskPercent === 5.0 && posBeta.actualRiskAmount === 500, `Risk%: ${posBeta.riskPercent}, USD: $${posBeta.actualRiskAmount}`);
 
-    const posTheta = riskManager.calculatePosition({
-      symbol: 'GOLD',
-      strategy: 'ENGINE_THETA (EMA_PULLBACK)',
-      equity: 10000,
-      entryPrice: 2000,
-      stopLossPrice: 1990,
-      takeProfitPrice: 2010,
-      currentSpread: 0.2
-    });
-    assert('Động cơ ngoài Hạng 1-2 (ENGINE_THETA) duy trì rủi ro cơ sở 2.0% vốn', posTheta.riskPercent === 2.0 && posTheta.actualRiskAmount === 200, `Risk%: ${posTheta.riskPercent}, USD: $${posTheta.actualRiskAmount}`);
-
     const posAlpha = riskManager.calculatePosition({
       symbol: 'GOLD',
       strategy: 'ENGINE_ALPHA (UT_BOT)',
@@ -289,7 +289,55 @@ async function runTests() {
       takeProfitPrice: 2010,
       currentSpread: 0.2
     });
-    assert('Động cơ ngoài Top 2 (ENGINE_ALPHA) duy trì rủi ro cơ sở 2.0% vốn', posAlpha.riskPercent === 2.0 && posAlpha.actualRiskAmount === 200, `Risk%: ${posAlpha.riskPercent}, USD: $${posAlpha.actualRiskAmount}`);
+    assert('Top 3 (ENGINE_ALPHA) được nâng quyền rủi ro lên 5.0% vốn', posAlpha.riskPercent === 5.0 && posAlpha.actualRiskAmount === 500, `Risk%: ${posAlpha.riskPercent}, USD: $${posAlpha.actualRiskAmount}`);
+    assert('Top 3 (ENGINE_ALPHA) tính đúng R:R = 1.0 và potentialReward không bị NaN', posAlpha.riskRewardRatio === 1.0 && !isNaN(posAlpha.potentialReward) && posAlpha.potentialReward === 500, `RR: ${posAlpha.riskRewardRatio}, Reward: $${posAlpha.potentialReward}`);
+
+    // Kiểm tra tính vị thế trên GBPUSD với ENGINE_ALPHA (Top 3: 5.0% Vốn, ContractSize: 100,000)
+    const posGbpAlpha = riskManager.calculatePosition({
+      symbol: 'GBPUSD',
+      strategy: 'ENGINE_ALPHA (UT_BOT)',
+      equity: 10000,
+      entryPrice: 1.3000,
+      stopLossPrice: 1.2985, // 15 pips (0.0015 buffer)
+      takeProfitPrice: 1.3015,
+      currentSpread: 0.00015
+    });
+    assert('GBPUSD (ENGINE_ALPHA): Nhận đúng 5.0% vốn ($500) và tính lot chuẩn (3.33 lot cho 15 pips)', posGbpAlpha.approved === true && posGbpAlpha.riskPercent === 5.0 && posGbpAlpha.lotSize === 3.33 && posGbpAlpha.actualRiskAmount === 499.5, `Approved: ${posGbpAlpha.approved}, Lot: ${posGbpAlpha.lotSize}, Risk: $${posGbpAlpha.actualRiskAmount}`);
+
+    // Kiểm tra tính vị thế trên US500 với ENGINE_ALPHA (Top 3: 5.0% Vốn, ContractSize: 1, MaxLot: 20.00)
+    const posUs500Alpha = riskManager.calculatePosition({
+      symbol: 'US500',
+      strategy: 'ENGINE_ALPHA (UT_BOT)',
+      equity: 10000,
+      entryPrice: 5850.00,
+      stopLossPrice: 5845.00, // 5.0 points buffer
+      takeProfitPrice: 5855.00,
+      currentSpread: 0.50
+    });
+    assert('US500 (ENGINE_ALPHA): Nhận đúng 5.0% vốn và khóa trần maxLot 20.00 an toàn', posUs500Alpha.approved === true && posUs500Alpha.riskPercent === 5.0 && posUs500Alpha.lotSize === 20.00 && posUs500Alpha.actualRiskAmount === 100, `Approved: ${posUs500Alpha.approved}, Lot: ${posUs500Alpha.lotSize}, Risk: $${posUs500Alpha.actualRiskAmount}`);
+
+    const posOmega = riskManager.calculatePosition({
+      symbol: 'GOLD',
+      strategy: 'ENGINE_OMEGA (LIQUIDITY_SWEEP_FADEOUT)',
+      equity: 10000,
+      entryPrice: 2000,
+      stopLossPrice: 1990,
+      takeProfitPrice: 2015,
+      currentSpread: 0.2
+    });
+    assert('Top 3 (ENGINE_OMEGA) được cấp quyền rủi ro 5.0% vốn khi thuộc Top 3', posOmega.riskPercent === 5.0 && posOmega.actualRiskAmount === 500, `Risk%: ${posOmega.riskPercent}, USD: $${posOmega.actualRiskAmount}`);
+    assert('Top 3 (ENGINE_OMEGA) tính đúng R:R = 1.5 và potentialReward không bị NaN', posOmega.riskRewardRatio === 1.5 && !isNaN(posOmega.potentialReward) && posOmega.potentialReward === 750, `RR: ${posOmega.riskRewardRatio}, Reward: $${posOmega.potentialReward}`);
+
+    const posTheta = riskManager.calculatePosition({
+      symbol: 'GOLD',
+      strategy: 'ENGINE_THETA (EMA_PULLBACK)',
+      equity: 10000,
+      entryPrice: 2000,
+      stopLossPrice: 1990,
+      takeProfitPrice: 2010,
+      currentSpread: 0.2
+    });
+    assert('Động cơ ngoài Top 3 (ENGINE_THETA) duy trì rủi ro cơ sở 2.0% vốn', posTheta.riskPercent === 2.0 && posTheta.actualRiskAmount === 200, `Risk%: ${posTheta.riskPercent}, USD: $${posTheta.actualRiskAmount}`);
 
     const posLambda = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -300,13 +348,16 @@ async function runTests() {
       takeProfitPrice: 2015,
       currentSpread: 0.2
     });
-    assert('Động cơ Counter-Trend (ENGINE_LAMBDA) áp dụng rủi ro 2.0% vốn', posLambda.riskPercent === 2.0 && posLambda.actualRiskAmount === 200, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
+    assert('Động cơ Counter-Trend ngoài Top 3 (ENGINE_LAMBDA) áp dụng rủi ro 2.0% vốn', posLambda.riskPercent === 2.0 && posLambda.actualRiskAmount === 200, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
 
     // Kiểm tra checkIsTopRankedStrategy trên TradingDaemon
     const isDeltaTop = await daemon.checkIsTopRankedStrategy('ENGINE_DELTA (HALFTREND_ADX)', 'BTCUSD');
     const isBetaTop = await daemon.checkIsTopRankedStrategy('ENGINE_BETA (CCI_PULLBACK)');
+    const isAlphaTop = await daemon.checkIsTopRankedStrategy('ENGINE_ALPHA (UT_BOT)');
+    const isOmegaTop = await daemon.checkIsTopRankedStrategy('ENGINE_OMEGA (LIQUIDITY_SWEEP)');
+    const isThetaTop = await daemon.checkIsTopRankedStrategy('ENGINE_THETA (EMA_PULLBACK)');
     const isUnknownTop = await daemon.checkIsTopRankedStrategy('ENGINE_UNKNOWN');
-    assert('TradingDaemon.checkIsTopRankedStrategy nhận diện đúng Top 1-3 và từ chối ngoài Top 3', isDeltaTop === true && isBetaTop === true && isUnknownTop === false, `Delta: ${isDeltaTop}, Beta: ${isBetaTop}, Unknown: ${isUnknownTop}`);
+    assert('TradingDaemon.checkIsTopRankedStrategy nhận diện đúng Top 1-3 và từ chối ngoài Top 3', isDeltaTop === true && isBetaTop === true && isAlphaTop === true && isOmegaTop === true && isThetaTop === false && isUnknownTop === false, `Delta: ${isDeltaTop}, Beta: ${isBetaTop}, Alpha: ${isAlphaTop}, Omega: ${isOmegaTop}, Theta: ${isThetaTop}, Unknown: ${isUnknownTop}`);
   }
 
   // TEST 7: Kiểm tra Timing Nến Đã Chốt (WP-03)
@@ -513,6 +564,7 @@ async function runTests() {
     const goldFilter = config.symbols.GOLD.sessionFilter;
     const usdjpyFilter = config.symbols.USDJPY.sessionFilter;
     const us500Filter = config.symbols.US500.sessionFilter;
+    const gbpFilter = config.symbols.GBPUSD.sessionFilter;
 
     // Helper tạo Date với giờ VN cụ thể: vnHour, vnMin (UTC = vnHour - 7)
     function makeVnDate(hourVN, minVN) {
@@ -546,13 +598,21 @@ async function runTests() {
     const jpyLondon = checkSessionFilter(usdjpyFilter, makeVnDate(14, 30));
     assert('USDJPY: 14:30 VN thuộc Khung Giờ Vàng London Judas Sweep Reversal', jpyLondon.allowed === true && jpyLondon.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${jpyLondon.allowed}`);
 
-    // 14.7. US500: Legacy filter 20:00 VN (Allowed 19:30 - 23:30)
-    const us500Ny = checkSessionFilter(us500Filter, makeVnDate(20, 0));
-    assert('US500: 20:00 VN trong phiên New York cho phép', us500Ny.allowed === true, `Allowed: ${us500Ny.allowed}`);
+    // 14.7. US500: New York Prime 21:00 VN (Allowed 20:30 - 02:00)
+    const us500Ny = checkSessionFilter(us500Filter, makeVnDate(21, 0));
+    assert('US500: 21:00 VN trong phiên New York Prime cho phép', us500Ny.allowed === true && us500Ny.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${us500Ny.allowed}, Reason: ${us500Ny.reason}`);
 
-    // 14.8. US500: Ngoài phiên 10:00 VN
+    // 14.8. US500: Ngoài phiên 10:00 VN rơi vào Vùng Tử Địa (Blackout 02:00 - 20:30)
     const us500Asia = checkSessionFilter(us500Filter, makeVnDate(10, 0));
-    assert('US500: 10:00 VN ngoài phiên New York bị từ chối', us500Asia.allowed === false && us500Asia.reason === 'OUTSIDE_ALLOWED_HOURS', `Allowed: ${us500Asia.allowed}`);
+    assert('US500: 10:00 VN rơi vào Vùng Tử Địa Phiên Á & Âu Kiệt Thanh Khoản', us500Asia.allowed === false && us500Asia.reason === 'BLACKOUT_WINDOW', `Allowed: ${us500Asia.allowed}, Reason: ${us500Asia.reason}`);
+
+    // 14.8b. GBPUSD: Trong phiên New York Prime 20:00 VN (Allowed 19:30 - 22:45)
+    const gbpNy = checkSessionFilter(gbpFilter, makeVnDate(20, 0));
+    assert('GBPUSD: 20:00 VN trong Khung Giờ Vàng NY Prime cho phép', gbpNy.allowed === true && gbpNy.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${gbpNy.allowed}`);
+
+    // 14.8c. GBPUSD: Đêm muộn 23:30 VN rơi vào Vùng Tử Địa (Blackout 22:45 - 19:30)
+    const gbpNight = checkSessionFilter(gbpFilter, makeVnDate(23, 30));
+    assert('GBPUSD: 23:30 VN bị chặn bởi Vùng Tử Địa Đêm, Á & Âu Kiệt Thanh Khoản', gbpNight.allowed === false && gbpNight.reason === 'BLACKOUT_WINDOW', `Allowed: ${gbpNight.allowed}`);
 
     // 14.9. BTCUSD: Không có sessionFilter (Giao dịch 24/7)
     const btc247 = checkSessionFilter(config.symbols.BTCUSD.sessionFilter, makeVnDate(3, 0));
@@ -613,9 +673,23 @@ async function runTests() {
     const bufBtcLow = calcDynSlBuffer('BTCUSD', 100, 250);
     assert('BTCUSD (ATR=100): Đệm giữ sàn 250', bufBtcLow === 250, `Buffer: ${bufBtcLow}`);
 
-    // 15.4. GBPUSD: minBuffer || 2.0
-    const bufGbp = calcDynSlBuffer('GBPUSD', 0.0050, 0.0015);
-    assert('GBPUSD: Sử dụng minAtrBuffer = 0.0015', bufGbp === 0.0015, `Buffer: ${bufGbp}`);
+    // 15.4. GBPUSD: max(1.5 * ATR, minBuffer 0.0015)
+    // High ATR = 0.0050 -> 1.5 * 0.0050 = 0.0075 > 0.0015
+    const bufGbpHigher = calcDynSlBuffer('GBPUSD', 0.0050, 0.0015);
+    assert('GBPUSD (High ATR=0.0050): Đệm động bung rộng 0.0075 (1.5 * 0.0050)', bufGbpHigher === 0.0075, `Buffer: ${bufGbpHigher}`);
+
+    // Low ATR = 0.0005 -> 1.5 * 0.0005 = 0.00075 < 0.0015 -> sàn 0.0015 (15 pips)
+    const bufGbpFloor = calcDynSlBuffer('GBPUSD', 0.0005, 0.0015);
+    assert('GBPUSD (Low ATR=0.0005): Đệm giữ sàn an toàn 0.0015 (15 pips)', bufGbpFloor === 0.0015, `Buffer: ${bufGbpFloor}`);
+
+    // 15.5. US500: max(0.60 * ATR, minBuffer 5.0)
+    // High ATR = 12.0 -> 0.60 * 12.0 = 7.2 > 5.0
+    const bufUs500High = calcDynSlBuffer('US500', 12.0, 5.0);
+    assert('US500 (High ATR=12.0): Đệm động bung rộng 7.2 (0.60 * 12.0)', bufUs500High === 7.2, `Buffer: ${bufUs500High}`);
+
+    // Low ATR = 6.0 -> 0.60 * 6.0 = 3.6 < 5.0 -> sàn 5.0 points
+    const bufUs500Floor = calcDynSlBuffer('US500', 6.0, 5.0);
+    assert('US500 (Low ATR=6.0): Đệm giữ sàn an toàn 5.0 points', bufUs500Floor === 5.0, `Buffer: ${bufUs500Floor}`);
   }
 
   // TEST 16: Kiểm tra Đồng Bộ Mã Nguồn evaluatePage trong daemon_monitor.js

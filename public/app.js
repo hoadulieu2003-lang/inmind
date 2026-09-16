@@ -866,11 +866,11 @@ function renderStrategyLeaderboard() {
 
   const isPotentialTopTier = potentialStrat && (potentialStrat.overallRank <= 3);
   const potentialBadgeHtml = isPotentialTopTier
-    ? `<span class="badge-tag" style="background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; font-weight:700; font-size:11px;">⚡ Rủi ro ưu tiên: 2.0% Vốn</span>`
-    : `<span class="badge-tag neutral" style="font-size:11px;">Rủi ro cơ sở: 1.0% Vốn</span>`;
+    ? `<span class="badge-tag" style="background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; font-weight:700; font-size:11px;">⚡ Rủi ro ưu tiên: 5.0% Vốn</span>`
+    : `<span class="badge-tag neutral" style="font-size:11px;">Rủi ro cơ sở: 2.0% Vốn</span>`;
   const potentialRecHtml = isPotentialTopTier
-    ? `⚡ Cấp quyền nâng rủi ro lên 2.0% tài khoản (Scalper 1.0% + Runner 1.0%)`
-    : `Duy trì rủi ro cơ sở 1.0% (Scalper 0.5% + Runner 0.5%)`;
+    ? `⚡ Cấp quyền nâng rủi ro lên 5.0% tài khoản (Scalper 2.5% + Runner 2.5%)`
+    : `Duy trì rủi ro cơ sở 2.0% (Scalper 1.0% + Runner 1.0%)`;
 
   // Cập nhật tóm tắt trên Winrate KPI card ở đầu trang
   const kpiBestElem = document.getElementById('kpiBestStrat');
@@ -887,7 +887,7 @@ function renderStrategyLeaderboard() {
       <div class="spotlight-header" style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
         <span class="spotlight-tag best">👑 QUÂN VƯƠNG VÔ ĐỊCH (HẠNG 1)</span>
         <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-          <span class="badge-tag" style="background:#FEE2E2; color:#991B1B; border:1px solid #F87171; font-weight:800; font-size:11px;">👑 Rủi ro Quân Vương: 5.0% Vốn (BTCUSD) | 2.0% Vốn (Vàng/Khác)</span>
+          <span class="badge-tag" style="background:#FEE2E2; color:#991B1B; border:1px solid #F87171; font-weight:800; font-size:11px;">👑 Rủi ro Quân Vương: 10.0% Vốn (BTCUSD) | 5.0% Vốn (Phi-BTC)</span>
           <span class="badge-tag live">${bestStrat?.isShadow ? 'SHADOW A/B' : 'LIVE EXNESS'}</span>
         </div>
       </div>
@@ -911,7 +911,7 @@ function renderStrategyLeaderboard() {
       </div>
       <div class="spotlight-action keep">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"></path></svg>
-        <span><strong>KHUYẾN NGHỊ:</strong> 👑 Quyền nâng rủi ro lên 5.0% vốn cho BTCUSD (Scalper 2.5% + Runner 2.5%) | Khóa trần 2.0% cho Vàng/Dầu</span>
+        <span><strong>KHUYẾN NGHỊ:</strong> 👑 Quyền nâng rủi ro lên 10.0% vốn cho BTCUSD (Scalper 5.0% + Runner 5.0%) | Khóa trần 5.0% cho Vàng/Phi-BTC</span>
       </div>
     </div>
 
@@ -941,7 +941,7 @@ function renderStrategyLeaderboard() {
       </div>
       <div class="spotlight-action drop">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        <span><strong>KHUYẾN NGHỊ:</strong> Duy trì rủi ro cơ sở 1.0% hoặc tạm dừng nếu tiếp tục thua</span>
+        <span><strong>KHUYẾN NGHỊ:</strong> Duy trì rủi ro cơ sở 2.0% hoặc tạm dừng nếu tiếp tục thua</span>
       </div>
     </div>
 
@@ -999,7 +999,7 @@ function renderStrategyLeaderboard() {
         <span class="rank-badge rank-1">🥇 Hạng 1 (Quân Vương)</span>
         <div style="margin-top: 4px;">
           <span class="badge-tag" style="background:#FEE2E2; color:#991B1B; border:1px solid #F87171; font-size:10px; font-weight:800; display:inline-flex; align-items:center; gap:2px; padding:2px 6px; white-space:nowrap;">
-            👑 RỦI RO QUÂN VƯƠNG: 5.0% (BTCUSD) | 2.0% (VÀNG / KHÁC)
+            👑 RỦI RO QUÂN VƯƠNG: 10.0% (BTCUSD) | 5.0% (PHI-BTC)
           </span>
         </div>
       `;
@@ -1008,7 +1008,7 @@ function renderStrategyLeaderboard() {
         <span class="rank-badge rank-2">🥈 Hạng 2</span>
         <div style="margin-top: 4px;">
           <span class="badge-tag" style="background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; font-size:10px; font-weight:700; display:inline-flex; align-items:center; gap:2px; padding:2px 6px; white-space:nowrap;">
-            ⚡ Rủi ro ưu tiên: 2.0% Vốn
+            ⚡ Rủi ro ưu tiên: 5.0% Vốn
           </span>
         </div>
       `;
@@ -1017,7 +1017,7 @@ function renderStrategyLeaderboard() {
         <span class="rank-badge rank-3">🥉 Hạng 3</span>
         <div style="margin-top: 4px;">
           <span class="badge-tag" style="background:#FEF3C7; color:#92400E; border:1px solid #FCD34D; font-size:10px; font-weight:700; display:inline-flex; align-items:center; gap:2px; padding:2px 6px; white-space:nowrap;">
-            ⚡ Rủi ro ưu tiên: 2.0% Vốn
+            ⚡ Rủi ro ưu tiên: 5.0% Vốn
           </span>
         </div>
       `;
@@ -1035,7 +1035,7 @@ function renderStrategyLeaderboard() {
         <span class="rank-badge ${s.netPnl < 0 ? 'rank-warn' : ''}">#${rank}</span>
         <div style="margin-top: 4px;">
           <span class="badge-tag neutral" style="font-size:10px; padding:2px 6px; white-space:nowrap;">
-            Rủi ro cơ sở: 1.0% Vốn
+            Rủi ro cơ sở: 2.0% Vốn
           </span>
         </div>
       `;
@@ -1049,19 +1049,19 @@ function renderStrategyLeaderboard() {
       recommendation = `<strong class="text-blue">⚡ Đánh lệch xu hướng (0.5% Vốn)</strong> • Bắt đỉnh/đáy kiệt sức`;
     } else if (rank === 1 && s.netPnl > 0) {
       statusPill = `<span class="status-pill champion">👑 QUÂN VƯƠNG</span>`;
-      recommendation = `<strong class="text-green">👑 Quyền nâng 5.0% Vốn (BTCUSD) | Khóa 2.0% Vốn (Vàng/Khác)</strong> • Động cơ số 1`;
+      recommendation = `<strong class="text-green">👑 Quyền nâng 10.0% Vốn (BTCUSD) | Khóa 5.0% Vốn (Phi-BTC)</strong> • Động cơ số 1`;
     } else if (isTopTier && s.netPnl > 0) {
       statusPill = `<span class="status-pill good">🟢 HIỆU QUẢ CAO</span>`;
-      recommendation = `<strong class="text-green">⚡ Quyền nâng 2.0% Vốn</strong> • Vận hành ổn định`;
+      recommendation = `<strong class="text-green">⚡ Quyền nâng 5.0% Vốn</strong> • Vận hành ổn định`;
     } else if (isTopTier) {
       statusPill = `<span class="status-pill good">🟢 TOP 3</span>`;
-      recommendation = `<strong class="text-green">⚡ Quyền nâng 2.0% Vốn</strong> • Đang giữ vị thế`;
+      recommendation = `<strong class="text-green">⚡ Quyền nâng 5.0% Vốn</strong> • Đang giữ vị thế`;
     } else if (s.netPnl < 0 || (s.totalTrades >= 3 && s.winRate < 45)) {
       statusPill = `<span class="status-pill danger">🔴 YẾU KÉM</span>`;
-      recommendation = `<strong class="text-red">Nên tắt / Lọc bỏ</strong> (Rủi ro 1.0%)`;
+      recommendation = `<strong class="text-red">Nên tắt / Lọc bỏ</strong> (Rủi ro 2.0%)`;
     } else {
       statusPill = `<span class="status-pill testing">🟡 ĐANG TEST</span>`;
-      recommendation = `Theo dõi thêm tín hiệu (Rủi ro 1.0%)`;
+      recommendation = `Theo dõi thêm tín hiệu (Rủi ro 2.0%)`;
     }
 
     // Winrate bar

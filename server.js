@@ -47,7 +47,10 @@ function parseAssetsFromLog(openPositions = []) {
   let assetsState = {
     GOLD: { symbol: 'TVC:GOLD', price: 4294.27, ema200: 4305.06, regime: 'BEARISH', utStop: 4268.48, squeeze: 'ON (Nén)', mom: 1.2007, activePosition: false },
     BTCUSD: { symbol: 'BITSTAMP:BTCUSD', price: 78533.50, ema200: 77542.33, regime: 'BULLISH', utStop: 78002.12, squeeze: 'OFF', mom: 460.84, activePosition: true },
-    USOIL: { symbol: 'TVC:USOIL', price: 107.22, ema200: 108.46, regime: 'BEARISH', utStop: 108.73, squeeze: 'OFF', mom: 0.1098, activePosition: false }
+    USOIL: { symbol: 'TVC:USOIL', price: 107.22, ema200: 108.46, regime: 'BEARISH', utStop: 108.73, squeeze: 'OFF', mom: 0.1098, activePosition: false },
+    GBPUSD: { symbol: 'FX:GBPUSD', price: 1.2950, ema200: 1.2920, regime: 'BULLISH', utStop: 1.2930, squeeze: 'OFF', mom: 0.0005, activePosition: false },
+    USDJPY: { symbol: 'FX:USDJPY', price: 156.40, ema200: 155.80, regime: 'BULLISH', utStop: 156.10, squeeze: 'OFF', mom: 0.05, activePosition: false },
+    US500: { symbol: 'SP:SPX', price: 5850.00, ema200: 5820.00, regime: 'BULLISH', utStop: 5835.00, squeeze: 'OFF', mom: 5.2, activePosition: false }
   };
 
   try {
@@ -55,9 +58,10 @@ function parseAssetsFromLog(openPositions = []) {
       const content = fs.readFileSync(LOG_FILE, 'utf-8');
       const lines = content.split('\n').filter(Boolean).slice(-120);
       for (const l of lines) {
-        for (const sym of ['GOLD', 'BTCUSD', 'USOIL', 'UKOIL']) {
+        for (const sym of ['GOLD', 'BTCUSD', 'USOIL', 'UKOIL', 'GBPUSD', 'USDJPY', 'US500']) {
           if (l.includes(`[ANALYSIS] ${sym}`)) {
             const targetKey = (sym === 'UKOIL' || sym === 'USOIL') ? 'USOIL' : sym;
+            if (!assetsState[targetKey]) assetsState[targetKey] = { symbol: targetKey, price: 0, ema200: 0, regime: 'NEUTRAL', activePosition: false };
             const pMatch = l.match(/Close\s*=\s*([\d\.]+)/);
             const emaMatch = l.match(/EMA 200\s*=\s*([\d\.]+)/);
             const regMatch = l.match(/(BULLISH|BEARISH)/);
@@ -73,7 +77,7 @@ function parseAssetsFromLog(openPositions = []) {
             if (momMatch) assetsState[targetKey].mom = parseFloat(momMatch[1]);
             if (utStopMatch) assetsState[targetKey].utStop = parseFloat(utStopMatch[1]);
             if (cciMatch) assetsState[targetKey].cci = parseFloat(cciMatch[1]);
-            assetsState[targetKey].activePosition = openPositions.some(p => p.includes(targetKey) || (targetKey === 'BTCUSD' && p === 'BTC') || (targetKey === 'GOLD' && p === 'XAU/USD') || (targetKey === 'USOIL' && (p === 'USOIL' || p === 'OIL')));
+            assetsState[targetKey].activePosition = openPositions.some(p => p.includes(targetKey) || (targetKey === 'BTCUSD' && p === 'BTC') || (targetKey === 'GOLD' && p === 'XAU/USD') || (targetKey === 'USOIL' && (p === 'USOIL' || p === 'OIL')) || (targetKey === 'GBPUSD' && (p === 'GBP/USD' || p === 'GBP')) || (targetKey === 'USDJPY' && (p === 'USD/JPY' || p === 'JPY')) || (targetKey === 'US500' && (p === 'US500' || p === 'SPX')));
           }
 
           if (l.includes(`[ACTIVE ENGINES] ${sym}`)) {

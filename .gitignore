@@ -9,3 +9,6 @@ data/trade.db-wal
 data/trade.db-journal
 .DS_Store
 Thumbs.db
+*.pid
+capture_redesign_verification.js
+inspect_current_ui.js
