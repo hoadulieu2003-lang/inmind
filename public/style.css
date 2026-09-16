@@ -2044,6 +2044,127 @@ body {
 .text-blue { color: var(--blue-main) !important; }
 .text-purple { color: var(--purple-main) !important; }
 
+/* ================= 9.1 AUTONOMOUS LEARNING AGENT STYLES ================= */
+.learning-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-learning-trigger {
+  background: var(--blue-main);
+  color: #FFFFFF;
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+  transition: all 0.15s ease;
+}
+
+.btn-learning-trigger:hover {
+  background: #1D4ED8;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-learning-trigger:active {
+  transform: translateY(0);
+}
+
+.btn-learning-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.learning-agent-card {
+  background: var(--bg-card);
+  border: 1px solid #E0E7FF;
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.04);
+}
+
+.learning-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.learning-stat-box {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.learning-stat-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.learning-stat-box strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.learning-stat-box .text-sub {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.learning-report-preview {
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.report-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.view-full-report-link {
+  color: var(--blue-main);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.view-full-report-link:hover {
+  text-decoration: underline;
+}
+
+.report-preview-body {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
 /* ================= 10. RESPONSIVE BREAKPOINTS ================= */
 @media (max-width: 1200px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }

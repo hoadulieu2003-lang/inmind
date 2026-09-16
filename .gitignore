@@ -10,5 +10,6 @@ data/trade.db-journal
 .DS_Store
 Thumbs.db
 *.pid
+data/config.backup.*.json
 capture_redesign_verification.js
 inspect_current_ui.js

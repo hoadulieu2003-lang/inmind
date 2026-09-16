@@ -104,6 +104,7 @@ async function fetchData() {
     renderAssets();
     renderStrategyLeaderboard();
     renderLedger();
+    renderLearningAgent();
   } catch (err) {
     console.error('Lỗi nạp dữ liệu telemetry:', err);
     const beacon = document.getElementById('daemonBeacon');
@@ -1404,6 +1405,67 @@ function handleHashRoute() {
 }
 window.addEventListener('hashchange', handleHashRoute);
 handleHashRoute();
+
+// Autonomous Learning Agent UI Handlers
+function renderLearningAgent() {
+  if (!currentStatus) return;
+  const l = currentStatus.lastLearningCycle;
+  if (!l) return;
+
+  const elDate = document.getElementById('learnLastCycleDate');
+  const elTime = document.getElementById('learnLastCycleTime');
+  const elWr = document.getElementById('learnWinrateVal');
+  const elPf = document.getElementById('learnPfVal');
+  const elPnl = document.getElementById('learnNetPnlVal');
+
+  if (elDate && l.date) elDate.innerText = l.date;
+  if (elTime && l.completedAt) {
+    try {
+      const d = new Date(l.completedAt);
+      elTime.innerText = d.toLocaleTimeString('vi-VN', { hour12: false, timeZone: 'Asia/Ho_Chi_Minh' }) + ' (UTC+7)';
+    } catch (e) {}
+  }
+  if (elWr && l.winRate !== undefined) elWr.innerText = `${l.winRate}% WR`;
+  if (elPf && l.profitFactor !== undefined) elPf.innerText = `Profit Factor: ${l.profitFactor}`;
+  if (elPnl && l.netPnl !== undefined) elPnl.innerText = `${l.netPnl >= 0 ? '+' : ''}$${Number(l.netPnl).toLocaleString()} USD`;
+}
+window.renderLearningAgent = renderLearningAgent;
+
+async function triggerLearningCycleManually() {
+  const btn = document.getElementById('btnTriggerLearning');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '⏳ Đang Tự Học...';
+  }
+  try {
+    const TUNNEL_URL = 'https://teams-superintendent-earlier-core.trycloudflare.com';
+    let url = '/api/learning/trigger';
+    if (window.location.hostname.includes('vercel.app')) {
+      url = `${TUNNEL_URL}/api/learning/trigger`;
+    }
+    const res = await fetch(url).then(r => r.json());
+    if (res && res.success) {
+      if (btn) btn.innerText = '✅ Hoàn Tất Tự Học!';
+      await fetchData();
+      setTimeout(() => {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = '⚡ Kích Hoạt Tự Học Ngay';
+        }
+      }, 3000);
+    } else {
+      throw new Error(res?.error || 'Lỗi không xác định');
+    }
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '❌ Thất Bại (Thử lại)';
+      setTimeout(() => { btn.innerText = '⚡ Kích Hoạt Tự Học Ngay'; }, 3000);
+    }
+    console.error('[LEARNING TRIGGER ERROR]', err);
+  }
+}
+window.triggerLearningCycleManually = triggerLearningCycleManually;
 
 // Initial call
 fetchData();

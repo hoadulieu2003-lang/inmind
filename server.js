@@ -403,7 +403,55 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 3. API: Artifact Evidence Images
+  // 3. API: Autonomous Learning Agent (Tri thức tự học định lượng)
+  if (pathname === '/api/learning') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    const learningDir = path.join(__dirname, 'data', 'learning');
+    let latestReport = null;
+    let latestMarkdown = '';
+    try {
+      if (fs.existsSync(learningDir)) {
+        const files = fs.readdirSync(learningDir).filter(f => f.endsWith('.md')).sort().reverse();
+        if (files.length > 0) {
+          latestReport = files[0];
+          latestMarkdown = fs.readFileSync(path.join(learningDir, latestReport), 'utf-8');
+        }
+      }
+      const statusFile = path.join(__dirname, 'data', 'status.json');
+      let statusData = {};
+      if (fs.existsSync(statusFile)) {
+        statusData = JSON.parse(fs.readFileSync(statusFile, 'utf-8'));
+      }
+      res.writeHead(200);
+      res.end(JSON.stringify({
+        success: true,
+        lastLearningCycle: statusData.lastLearningCycle || null,
+        latestReportFile: latestReport,
+        reportMarkdown: latestMarkdown
+      }, null, 2));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/learning/trigger') {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    try {
+      const AutonomousLearningAgent = require('./autonomous_learning_agent');
+      const agent = new AutonomousLearningAgent({ dryRun: false });
+      const result = await agent.runCycle();
+      res.writeHead(200);
+      res.end(JSON.stringify(result, null, 2));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
+    return;
+  }
+
+  // 4. API: Artifact Evidence Images
   if (pathname.startsWith('/api/artifacts/') || pathname.startsWith('/artifacts/')) {
     const rawFile = pathname.replace(/^\/(?:api\/)?artifacts\//, '');
     const cleanFileName = path.basename(decodeURIComponent(rawFile));

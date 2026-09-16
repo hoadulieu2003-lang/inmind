@@ -1812,7 +1812,14 @@ class TradingDaemon {
         maxTotalPositions: config.risk?.pyramiding?.maxTotalPositions || 6,
         pyramiding: config.risk?.pyramiding || { enabled: true, maxLayersPerAsset: 2, maxTotalPositions: 6, requireBreakevenBeforeScaleIn: true },
         maxDailyLossPercent: config.risk?.maxDailyLossPercent || 20.0,
-        assets: this.latestAssetsState || {}
+        assets: this.latestAssetsState || {},
+        lastLearningCycle: this.lastLearningCycle || (() => {
+          try {
+            const sp = path.join(__dirname, 'data', 'status.json');
+            if (fs.existsSync(sp)) return JSON.parse(fs.readFileSync(sp, 'utf8')).lastLearningCycle || null;
+          } catch (e) {}
+          return null;
+        })()
       };
 
       const dataDir = path.join(__dirname, 'data');
@@ -3592,6 +3599,22 @@ class TradingDaemon {
         // Kiểm tra an toàn cuối tuần lúc 03:30 sáng Thứ Bảy
         if (vnDay === 6 && vnHr === 3 && vnMin >= 30 && vnMin <= 35) {
           await this.closeWeekendPositions();
+        }
+
+        // TỰ ĐỘNG KÍCH HOẠT TÁC TỬ TỰ HỌC & ĐÚC RÚT TRI THỨC LÚC 00:05 VN HẰNG NGÀY
+        const vnDateToday = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+        if (vnHr === 0 && vnMin >= 5 && vnMin <= 25 && this._lastLearningDate !== vnDateToday) {
+          this._lastLearningDate = vnDateToday;
+          try {
+            const AutonomousLearningAgent = require('./autonomous_learning_agent');
+            const agent = new AutonomousLearningAgent({ dryRun: false });
+            log(`🧠 [NIGHTLY LEARNING] Bắt đầu kích hoạt Tác tử Tự học & Hiệu chỉnh cho ngày ${vnDateToday}...`);
+            const learningRes = await agent.runCycle(vnDateToday);
+            this.lastLearningCycle = learningRes.analysis?.summary || null;
+            log(`🧠 [NIGHTLY LEARNING] Hoàn tất chu kỳ tự học đêm! Báo cáo: ${learningRes.reportPath}`);
+          } catch (learningErr) {
+            log(`⚠️ [NIGHTLY LEARNING ERROR] ${learningErr.message}`);
+          }
         }
 
         const msToWait = this.calculateMsToNextScan();
