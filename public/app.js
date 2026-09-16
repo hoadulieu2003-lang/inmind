@@ -1,9 +1,34 @@
 // Antigravity Quant — Dashboard Client Controller
 let currentStatus = null;
 let currentJournal = [];
-let currentFilter = 'all';
+let currentFilter = 'today';
+let currentKpiScope = 'today'; // 'today' | 'all'
 let countdownRemaining = 900;
 let countdownTimerInterval = null;
+
+function getVietnamDateStr(isoOrDate) {
+  const d = isoOrDate ? new Date(isoOrDate) : new Date();
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
+
+function isTradeToday(t, vnDateToday) {
+  if (!t) return false;
+  const dStr = t.timestamp ? getVietnamDateStr(t.timestamp) : '';
+  const vnStr = t.timeVietnam || t.time_vietnam || '';
+  const [y, m, d] = vnDateToday.split('-');
+  const vnFormat1 = `${parseInt(d)}/${parseInt(m)}/${y}`;
+  const vnFormat2 = `${d}/${m}/${y}`;
+  return dStr === vnDateToday || vnStr.includes(vnFormat1) || vnStr.includes(vnFormat2);
+}
+
+window.setKpiScope = function(scope) {
+  currentKpiScope = scope;
+  const btnToday = document.getElementById('btnScopeToday');
+  const btnAll = document.getElementById('btnScopeAll');
+  if (btnToday) btnToday.className = `kpi-scope-btn ${scope === 'today' ? 'active' : ''}`;
+  if (btnAll) btnAll.className = `kpi-scope-btn ${scope === 'all' ? 'active' : ''}`;
+  renderKPIs();
+};
 
 // Clock
 function updateClock() {
@@ -88,16 +113,216 @@ async function fetchData() {
   }
 }
 
-// 1. Render KPIs
+// 1. Render KPIs (Hỗ trợ Chế độ xem Kép: Hôm Nay vs Toàn Thời Gian)
 function renderKPIs() {
   if (!currentStatus) return;
 
+  const now = new Date();
+  const vnDateToday = getVietnamDateStr(now);
+  const [yVal, mVal, dVal] = vnDateToday.split('-');
+  const todayLabel = `${dVal}/${mVal}`;
+
+  // 1. Lấy dữ liệu Hôm nay & Toàn thời gian
+  let today = currentStatus.today;
+  let allTime = currentStatus.allTime;
+
+  // Fallback tính toán tại client nếu server payload chưa có
+  if (!today || !allTime) {
+    const todayTrades = currentJournal.filter(t => isTradeToday(t, vnDateToday));
+    const todayClosed = todayTrades.filter(t => 
+      t.status === 'WIN' || t.status === 'LOSS' || t.status === 'BREAKEVEN' || 
+      (typeof t.pnl === 'number' && t.pnl !== null && t.status !== 'OPEN')
+    );
+    let tWins = 0, tLosses = 0, tBes = 0, tGrossWin = 0, tGrossLoss = 0, tNetPnl = 0;
+    todayClosed.forEach(t => {
+      const pnl = typeof t.pnl === 'number' ? t.pnl : 0;
+      tNetPnl += pnl;
+      if (pnl > 0.05 || (t.status === 'WIN' && pnl > 0)) { tWins++; tGrossWin += pnl; }
+      else if (pnl < -0.05 || t.status === 'LOSS') { tLosses++; tGrossLoss += Math.abs(pnl); }
+      else { tBes++; }
+    });
+    const tDecisive = tWins + tLosses;
+    const tWr = tDecisive > 0 ? ((tWins / tDecisive) * 100) : 0;
+    const tPf = tGrossLoss > 0 ? (tGrossWin / tGrossLoss) : (tGrossWin > 0 ? 999 : 0);
+    const startBal = +( (currentStatus.balance || 11001.16) - tNetPnl ).toFixed(2);
+    const tRoi = startBal > 0 ? ((tNetPnl / startBal) * 100) : 0;
+
+    today = {
+      date: vnDateToday,
+      dateLabel: `${dVal}/${mVal}/${yVal}`,
+      startBalance: startBal,
+      netPnL: +tNetPnl.toFixed(2),
+      roi: +tRoi.toFixed(2),
+      winRate: +tWr.toFixed(1),
+      wins: tWins,
+      losses: tLosses,
+      breakevens: tBes,
+      grossWin: +tGrossWin.toFixed(2),
+      grossLoss: +tGrossLoss.toFixed(2),
+      profitFactor: +tPf.toFixed(2),
+      closedTradesCount: todayClosed.length,
+      openTradesCount: todayTrades.length - todayClosed.length,
+      totalTradesToday: todayTrades.length
+    };
+  }
+
+  if (!allTime) {
+    const allClosed = currentJournal.filter(t => 
+      t.status === 'WIN' || t.status === 'LOSS' || t.status === 'BREAKEVEN' || 
+      (typeof t.pnl === 'number' && t.pnl !== null && t.status !== 'OPEN')
+    );
+    let aWins = 0, aLosses = 0, aBes = 0, aGrossWin = 0, aGrossLoss = 0;
+    allClosed.forEach(t => {
+      const pnl = typeof t.pnl === 'number' ? t.pnl : 0;
+      if (pnl > 0.05 || (t.status === 'WIN' && pnl > 0)) { aWins++; aGrossWin += pnl; }
+      else if (pnl < -0.05 || t.status === 'LOSS') { aLosses++; aGrossLoss += Math.abs(pnl); }
+      else { aBes++; }
+    });
+    const aDecisive = aWins + aLosses;
+    const aWr = aDecisive > 0 ? ((aWins / aDecisive) * 100) : 0;
+    const aPf = aGrossLoss > 0 ? (aGrossWin / aGrossLoss) : 0;
+
+    allTime = {
+      initialBalance: 9388.75,
+      equity: currentStatus.equity,
+      balance: currentStatus.balance,
+      netPnL: +(currentStatus.equity - 9388.75).toFixed(2),
+      roi: +(((currentStatus.equity - 9388.75) / 9388.75) * 100).toFixed(2),
+      winRate: +aWr.toFixed(1),
+      wins: aWins,
+      losses: aLosses,
+      breakevens: aBes,
+      grossWin: +aGrossWin.toFixed(2),
+      grossLoss: +aGrossLoss.toFixed(2),
+      profitFactor: +aPf.toFixed(2),
+      closedTradesCount: allClosed.length,
+      totalTradesCount: currentJournal.length
+    };
+  }
+
+  const isToday = currentKpiScope === 'today';
+
+  // 2. Cập nhật Scope Bar
+  const scopeTodayDate = document.getElementById('scopeTodayDate');
+  if (scopeTodayDate) scopeTodayDate.innerText = todayLabel;
+  const kpiScopeTodayTrades = document.getElementById('kpiScopeTodayTrades');
+  if (kpiScopeTodayTrades) kpiScopeTodayTrades.innerText = `${today.totalTradesToday || 0} LỆNH`;
+  const kpiScopeAllTrades = document.getElementById('kpiScopeAllTrades');
+  if (kpiScopeAllTrades) kpiScopeAllTrades.innerText = `${allTime.totalTradesCount || currentJournal.length} LỆNH`;
+
+  const todayStartBalVal = document.getElementById('todayStartBalVal');
+  if (todayStartBalVal) todayStartBalVal.innerText = `$${(today.startBalance || 10838.81).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+  const scopeDesc = document.getElementById('scopeDescriptionText');
+  if (scopeDesc) {
+    scopeDesc.innerHTML = isToday
+      ? `Tự động Reset vào 00:00 (Giờ VN) • Vốn đầu ngày: <strong class="mono text-green">$${(today.startBalance || 10838.81).toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>`
+      : `Lũy kế toàn thời gian từ vốn khởi đầu <strong class="mono">$9,388.75</strong> qua <strong class="mono">${allTime.totalTradesCount || currentJournal.length} lệnh</strong>`;
+  }
+
+  // 3. Render Card 1: EQUITY & ROI
   document.getElementById('equityVal').innerText = `$${currentStatus.equity.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-  
+  const roiElem = document.getElementById('roiVal');
+  const netPnlElem = document.getElementById('netPnlVal');
+  const kpiPnlLabel = document.getElementById('kpiPnlLabel');
+  const kpiAltPnlLabel = document.getElementById('kpiAltPnlLabel');
+  const kpiAltPnlVal = document.getElementById('kpiAltPnlVal');
+
+  if (isToday) {
+    const isPos = today.roi >= 0;
+    roiElem.innerText = `${isPos ? '+' : ''}${today.roi.toFixed(2)}% (Hôm nay)`;
+    roiElem.className = `kpi-diff ${isPos ? 'positive' : 'negative'}`;
+    if (kpiPnlLabel) kpiPnlLabel.innerText = 'Lãi ròng hôm nay:';
+    if (netPnlElem) {
+      netPnlElem.innerText = `${today.netPnL >= 0 ? '+' : ''}$${today.netPnL.toFixed(2)}`;
+      netPnlElem.className = `mono ${today.netPnL >= 0 ? 'text-green' : 'text-red'}`;
+    }
+    if (kpiAltPnlLabel) kpiAltPnlLabel.innerText = 'Toàn thời gian:';
+    if (kpiAltPnlVal) kpiAltPnlVal.innerText = `${allTime.netPnL >= 0 ? '+' : ''}$${allTime.netPnL.toFixed(2)} (${allTime.roi >= 0 ? '+' : ''}${allTime.roi.toFixed(2)}%)`;
+  } else {
+    const isPos = allTime.roi >= 0;
+    roiElem.innerText = `${isPos ? '+' : ''}${allTime.roi.toFixed(2)}% (Toàn kỳ)`;
+    roiElem.className = `kpi-diff ${isPos ? 'positive' : 'negative'}`;
+    if (kpiPnlLabel) kpiPnlLabel.innerText = 'Lãi lũy kế toàn kỳ:';
+    if (netPnlElem) {
+      netPnlElem.innerText = `${allTime.netPnL >= 0 ? '+' : ''}$${allTime.netPnL.toFixed(2)}`;
+      netPnlElem.className = `mono ${allTime.netPnL >= 0 ? 'text-green' : 'text-red'}`;
+    }
+    if (kpiAltPnlLabel) kpiAltPnlLabel.innerText = 'Hôm nay:';
+    if (kpiAltPnlVal) kpiAltPnlVal.innerText = `${today.netPnL >= 0 ? '+' : ''}$${today.netPnL.toFixed(2)} (${today.roi >= 0 ? '+' : ''}${today.roi.toFixed(2)}%)`;
+  }
+
   const balElem = document.getElementById('balanceVal');
   if (balElem) {
     const bal = currentStatus.balance || currentStatus.equity;
     balElem.innerText = `$${bal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  }
+
+  // 4. Render Card 2: WINRATE
+  const winRateElem = document.getElementById('winRateVal');
+  const winLossElem = document.getElementById('winLossCount');
+  const winRateBadge = document.getElementById('winRateBadge');
+  const kpiAltWrVal = document.getElementById('kpiAltWrVal');
+  const todayClosedText = document.getElementById('todayClosedCountText');
+
+  if (isToday) {
+    if (winRateBadge) winRateBadge.innerText = `HÔM NAY (${todayLabel})`;
+    if (winRateElem) {
+      winRateElem.innerText = `${today.winRate.toFixed(1)}%`;
+      winRateElem.className = `kpi-value mono ${today.winRate >= 50 ? 'text-green' : 'text-red'}`;
+    }
+    if (winLossElem) winLossElem.innerText = `${today.wins}W / ${today.losses}L (${today.breakevens} HÒA)`;
+    if (todayClosedText) todayClosedText.innerText = `${today.closedTradesCount} lệnh (${today.openTradesCount} mở)`;
+    if (kpiAltWrVal) kpiAltWrVal.innerText = `${allTime.winRate.toFixed(1)}% (${allTime.wins}W / ${allTime.losses}L)`;
+  } else {
+    if (winRateBadge) winRateBadge.innerText = 'TOÀN THỜI GIAN';
+    if (winRateElem) {
+      winRateElem.innerText = `${allTime.winRate.toFixed(1)}%`;
+      winRateElem.className = `kpi-value mono ${allTime.winRate >= 50 ? 'text-green' : 'text-red'}`;
+    }
+    if (winLossElem) winLossElem.innerText = `${allTime.wins}W / ${allTime.losses}L (${allTime.breakevens} HÒA)`;
+    if (todayClosedText) todayClosedText.innerText = `${allTime.closedTradesCount} lệnh đã chốt`;
+    if (kpiAltWrVal) kpiAltWrVal.innerText = `${today.winRate.toFixed(1)}% (${today.wins}W / ${today.losses}L)`;
+  }
+
+  // 5. Render Card 3: PROFIT FACTOR
+  const pfElem = document.getElementById('profitFactorVal');
+  const pfBadge = document.getElementById('pfBadge');
+  const grossWinElem = document.getElementById('grossWinVal');
+  const grossLossElem = document.getElementById('grossLossVal');
+  const kpiAltPfVal = document.getElementById('kpiAltPfVal');
+
+  if (isToday) {
+    if (pfBadge) pfBadge.innerText = 'HÔM NAY';
+    if (pfElem) pfElem.innerText = today.profitFactor > 0 ? today.profitFactor.toFixed(2) : (today.grossWin > 0 ? 'Max Alpha' : '0.0');
+    if (grossWinElem) grossWinElem.innerText = `+$${today.grossWin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (grossLossElem) grossLossElem.innerText = `-$${today.grossLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (kpiAltPfVal) kpiAltPfVal.innerText = `${allTime.profitFactor} (+$${allTime.grossWin.toFixed(0)} / -$${allTime.grossLoss.toFixed(0)})`;
+  } else {
+    if (pfBadge) pfBadge.innerText = 'TOÀN KỲ';
+    if (pfElem) pfElem.innerText = allTime.profitFactor > 0 ? allTime.profitFactor.toFixed(2) : (allTime.grossWin > 0 ? 'Max Alpha' : '0.0');
+    if (grossWinElem) grossWinElem.innerText = `+$${allTime.grossWin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (grossLossElem) grossLossElem.innerText = `-$${allTime.grossLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (kpiAltPfVal) kpiAltPfVal.innerText = `${today.profitFactor} (+$${today.grossWin.toFixed(0)} / -$${today.grossLoss.toFixed(0)})`;
+  }
+
+  // 6. Render Card 4: HEAT & OPEN POSITIONS
+  const maxPos = currentStatus.maxTotalPositions || 10;
+  const openCount = currentStatus.openPositionsCount || 0;
+  document.getElementById('activePositionsCount').innerText = `${openCount} / ${maxPos}`;
+  document.getElementById('heatRatioBadge').innerText = `${openCount} / ${maxPos} VỊ THẾ`;
+  document.getElementById('heatBar').style.width = `${Math.min(100, (openCount / maxPos) * 100)}%`;
+
+  const openSymbolsText = currentStatus.openSymbols && currentStatus.openSymbols.length > 0 
+    ? currentStatus.openSymbols.join(', ') 
+    : 'Không có vị thế mở';
+  document.getElementById('openSymbolsList').innerText = openSymbolsText;
+
+  const freeMarginKpiElem = document.getElementById('freeMarginKpiVal');
+  if (freeMarginKpiElem) {
+    freeMarginKpiElem.innerText = currentStatus.freeMargin
+      ? `$${currentStatus.freeMargin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+      : '--';
   }
 
   // Cập nhật trạng thái Daemon Liveness
@@ -113,107 +338,11 @@ function renderKPIs() {
     }
   }
 
-  const roiElem = document.getElementById('roiVal');
-  const isPositive = currentStatus.roi >= 0;
-  roiElem.innerText = `${isPositive ? '+' : ''}${currentStatus.roi.toFixed(2)}%`;
-  roiElem.className = `kpi-diff ${isPositive ? 'positive' : 'negative'}`;
-
-  const netPnlElem = document.getElementById('netPnlVal');
-  netPnlElem.innerText = `${isPositive ? '+' : ''}$${currentStatus.netPnL.toFixed(2)}`;
-
-  // Vị thế đồng thời (Portfolio Heat)
-  const maxPos = currentStatus.maxTotalPositions || 6;
-  const openCount = currentStatus.openPositionsCount || 0;
-  document.getElementById('activePositionsCount').innerText = `${openCount} / ${maxPos}`;
-  document.getElementById('heatRatioBadge').innerText = `${openCount} / ${maxPos} ĐỒNG THỜI`;
-  document.getElementById('heatBar').style.width = `${Math.min(100, (openCount / maxPos) * 100)}%`;
-
-  const openSymbolsText = currentStatus.openSymbols && currentStatus.openSymbols.length > 0 
-    ? currentStatus.openSymbols.join(', ') 
-    : 'Không có vị thế mở';
-  document.getElementById('openSymbolsList').innerText = openSymbolsText;
-
-  // Tính toán Tỉ Lệ Thắng Thực Tế từ nhật ký (journal)
-  if (Array.isArray(currentJournal) && currentJournal.length > 0) {
-    // 1. Lọc các lệnh Live Exness đã đóng
-    const liveTrades = currentJournal.filter(t => !t.isShadow && !t.strategy?.includes('SHADOW'));
-    const closedLive = liveTrades.filter(t => t.status === 'WIN' || t.status === 'LOSS' || t.status === 'BREAKEVEN' || (typeof t.pnl === 'number' && t.pnl !== null));
-    
-    // Nếu có lệnh live thì ưu tiên thống kê live, nếu chưa có thì tính toàn bộ
-    const targetSet = closedLive.length > 0 ? closedLive : currentJournal.filter(t => t.status && t.status !== 'OPEN');
-    const isLiveOnly = closedLive.length > 0;
-
-    let wins = 0;
-    let losses = 0;
-    let breakevens = 0;
-    let grossWin = 0;
-    let grossLoss = 0;
-
-    targetSet.forEach(t => {
-      const pnl = typeof t.pnl === 'number' ? t.pnl : 0;
-      if (pnl > 0 || (t.status === 'WIN' && pnl > 0)) {
-        wins++;
-        grossWin += pnl;
-      } else if (pnl < 0 || t.status === 'LOSS') {
-        losses++;
-        grossLoss += Math.abs(pnl);
-      } else {
-        breakevens++;
-      }
-    });
-
-    const decisiveTotal = wins + losses;
-    const wr = decisiveTotal > 0 ? ((wins / decisiveTotal) * 100).toFixed(1) : '0.0';
-    const pf = grossLoss > 0 ? (grossWin / grossLoss).toFixed(2) : (grossWin > 0 ? 'Max Alpha' : '0.0');
-
-    const winRateElem = document.getElementById('winRateVal');
-    if (winRateElem) {
-      winRateElem.innerText = `${wr}%`;
-      winRateElem.className = `kpi-value mono ${parseFloat(wr) >= 50 ? 'text-green' : 'text-red'}`;
-    }
-
-    const winLossElem = document.getElementById('winLossCount');
-    if (winLossElem) {
-      winLossElem.innerText = `${wins} THẮNG / ${losses} THUA (${breakevens} HÒA)`;
-    }
-
-    const badgeElem = document.getElementById('winRateBadge');
-    if (badgeElem) {
-      badgeElem.innerText = isLiveOnly ? 'LIVE EXNESS' : 'A/B TESTING';
-    }
-
-    // Lệnh vừa đóng gần nhất có phát sinh PnL thực tế
-    const decisiveTrades = targetSet.filter(t => typeof t.pnl === 'number' && t.pnl !== 0);
-    const lastTrade = decisiveTrades.length > 0 ? decisiveTrades[decisiveTrades.length - 1] : targetSet[targetSet.length - 1];
-    const lastClosedElem = document.getElementById('lastClosedTrade');
-    if (lastClosedElem && lastTrade) {
-      const sym = lastTrade.symbol || lastTrade.asset || 'EXNESS';
-      const act = lastTrade.action || '';
-      const pnlStr = typeof lastTrade.pnl === 'number' ? `${lastTrade.pnl >= 0 ? '+' : ''}$${lastTrade.pnl.toFixed(2)}` : '';
-      lastClosedElem.innerHTML = `<span class="${lastTrade.pnl >= 0 ? 'text-green' : 'text-red'}">${sym} ${act} (${pnlStr})</span>`;
-    }
-
-    const grossWinElem = document.getElementById('grossWinVal');
-    if (grossWinElem) {
-      grossWinElem.innerText = `+$${grossWin.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    }
-    const grossLossElem = document.getElementById('grossLossVal');
-    if (grossLossElem) {
-      grossLossElem.innerText = `-$${grossLoss.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    }
-
-    const pfElem = document.getElementById('profitFactorVal');
-    if (pfElem) {
-      pfElem.innerText = pf;
-    }
-  }
-
   if (currentStatus.lastScanTime) {
     const timeMatch = currentStatus.lastScanTime.match(/(\d{2}:\d{2}:\d{2})/);
     const lastScanElem = document.getElementById('lastScanTime');
     if (lastScanElem) lastScanElem.innerText = timeMatch ? timeMatch[1] : currentStatus.lastScanTime;
   } else {
-    const now = new Date();
     const curMins = now.getMinutes();
     const lastBarMins = Math.floor(curMins / 15) * 15;
     const barDate = new Date(now);
@@ -277,6 +406,13 @@ function renderEquityChart() {
 
   const latestLabelElem = document.getElementById('chartLatestLabel');
   if (latestLabelElem) latestLabelElem.innerText = `Hiện tại ($${currentEquity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+
+  const dayStartElem = document.getElementById('chartDayStartLabel');
+  if (dayStartElem && currentStatus && currentStatus.today) {
+    const dLabel = currentStatus.today.dateLabel ? currentStatus.today.dateLabel.slice(0, 5) : '16/09';
+    const sBal = (currentStatus.today.startBalance || 10838.81).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    dayStartElem.innerText = `Đầu ngày ${dLabel} ($${sBal})`;
+  }
 
   const btcElem = document.getElementById('chartBtcPnl');
   if (btcElem) btcElem.innerText = `${btcPnl >= 0 ? '+' : ''}$${btcPnl.toFixed(2)}`;
@@ -987,6 +1123,9 @@ function renderLedger() {
   const tbody = document.getElementById('ledgerTableBody');
   tbody.innerHTML = '';
 
+  const now = new Date();
+  const vnDateToday = getVietnamDateStr(now);
+  const todayTrades = currentJournal.filter(t => isTradeToday(t, vnDateToday));
   const liveTrades = currentJournal.filter(t => !t.isShadow);
   const shadowTrades = currentJournal.filter(t => t.isShadow);
   const scalperTrades = currentJournal.filter(t => t.ticketType === 'SCALPER' || t.strategy?.includes('SCALPER') || t.note?.includes('SCALPER'));
@@ -994,6 +1133,8 @@ function renderLedger() {
   const winTrades = currentJournal.filter(t => t.status === 'WIN' || t.status === 'SHADOW_WIN' || (typeof t.pnl === 'number' && t.pnl > 0));
   const lossTrades = currentJournal.filter(t => t.status === 'LOSS' || t.status === 'SHADOW_LOSS' || (typeof t.pnl === 'number' && t.pnl < 0));
 
+  const countTodayElem = document.getElementById('countToday');
+  if (countTodayElem) countTodayElem.innerText = todayTrades.length;
   document.getElementById('countAll').innerText = currentJournal.length;
   document.getElementById('countLive').innerText = liveTrades.length;
   if (document.getElementById('countShadow')) document.getElementById('countShadow').innerText = shadowTrades.length;
@@ -1008,7 +1149,8 @@ function renderLedger() {
   }
 
   let filtered = currentJournal;
-  if (currentFilter === 'live') filtered = liveTrades;
+  if (currentFilter === 'today') filtered = todayTrades;
+  else if (currentFilter === 'live') filtered = liveTrades;
   else if (currentFilter === 'shadow') filtered = shadowTrades;
   else if (currentFilter === 'scalper') filtered = scalperTrades;
   else if (currentFilter === 'runner') filtered = runnerTrades;
@@ -1156,20 +1298,20 @@ document.getElementById('tabBtnTV').addEventListener('click', () => {
 
 // Filter Buttons for Trade Ledger
 document.querySelectorAll('[data-filter]').forEach(btn => {
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', () => {
     document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
-    currentFilter = e.target.getAttribute('data-filter');
+    btn.classList.add('active');
+    currentFilter = btn.getAttribute('data-filter');
     renderLedger();
   });
 });
 
 // Filter Buttons for Strategy Leaderboard
 document.querySelectorAll('[data-strat-filter]').forEach(btn => {
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', () => {
     document.querySelectorAll('[data-strat-filter]').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
-    currentStratFilter = e.target.getAttribute('data-strat-filter');
+    btn.classList.add('active');
+    currentStratFilter = btn.getAttribute('data-strat-filter');
     renderStrategyLeaderboard();
   });
 });

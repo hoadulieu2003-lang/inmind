@@ -386,6 +386,90 @@ body {
   transform: translateY(0);
 }
 
+/* ================= KPI SCOPE SELECTOR & RESET BAR ================= */
+.kpi-scope-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  box-shadow: var(--shadow-xs);
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.kpi-scope-toggle {
+  display: flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  padding: 3px;
+  border-radius: 9999px;
+  gap: 4px;
+}
+
+.kpi-scope-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.kpi-scope-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.kpi-scope-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+.scope-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.scope-dot.green { background-color: var(--green-main); }
+.scope-dot.blue { background-color: var(--blue-main); }
+
+.scope-pill-badge {
+  font-size: 10px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-light);
+}
+
+.kpi-scope-btn.active .scope-pill-badge {
+  background: var(--green-bg);
+  color: var(--green-main);
+  border-color: var(--green-border);
+}
+
+.kpi-scope-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 /* ================= KPI HERO GRID ================= */
 .kpi-grid {
   display: grid;
@@ -478,6 +562,50 @@ body {
   color: var(--text-secondary);
   border-top: 1px solid var(--border-light);
   padding-top: 8px;
+}
+
+.kpi-footer-dual {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-light);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+.dual-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.dual-row.sub-muted {
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+.filter-btn.highlight-today {
+  background: var(--green-bg);
+  color: var(--green-main);
+  border-color: var(--green-border);
+  font-weight: 800;
+}
+
+.filter-btn.highlight-today:hover {
+  background: #D1FAE5;
+  color: #047857;
+  border-color: #6EE7B7;
+}
+
+.filter-btn.highlight-today.active {
+  background: var(--green-main) !important;
+  color: #FFFFFF !important;
+  border-color: var(--green-main) !important;
 }
 
 .kpi-sub-action {

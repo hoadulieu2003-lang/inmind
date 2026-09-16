@@ -110,53 +110,91 @@
     <!-- ========================================================================= -->
     <section class="tab-pane active" id="paneDesk">
       
+      <!-- 1.0 KPI SCOPE BAR (BỘ CHUYỂN ĐỔI CHẾ ĐỘ XEM: HÔM NAY VS TOÀN THỜI GIAN) -->
+      <div class="kpi-scope-bar">
+        <div class="kpi-scope-toggle">
+          <button type="button" class="kpi-scope-btn active" id="btnScopeToday" onclick="setKpiScope('today')">
+            <span class="scope-dot green"></span>
+            <span id="scopeTodayTitle">⚡ HÔM NAY (<span id="scopeTodayDate">16/09</span>)</span>
+            <span class="scope-pill-badge" id="kpiScopeTodayTrades">4 LỆNH</span>
+          </button>
+          <button type="button" class="kpi-scope-btn" id="btnScopeAll" onclick="setKpiScope('all')">
+            <span class="scope-dot blue"></span>
+            <span>🌐 TOÀN THỜI GIAN</span>
+            <span class="scope-pill-badge" id="kpiScopeAllTrades">80 LỆNH</span>
+          </button>
+        </div>
+        <div class="kpi-scope-status">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          <span id="scopeDescriptionText">Tự động Reset vào 00:00 (Giờ VN) • Vốn đầu ngày: <strong class="mono text-green" id="todayStartBalVal">$10,838.81</strong></span>
+        </div>
+      </div>
+
       <!-- 1.1 KPI RIBBON (4 THẺ TINH GỌN: EQUITY, WINRATE, PROFIT FACTOR, VỊ THẾ MỞ) -->
       <div class="kpi-grid">
         <!-- KPI 1: EQUITY -->
         <div class="kpi-card highlight">
           <div class="kpi-header">
-            <span class="kpi-title">VỐN TÀI KHOẢN (EQUITY)</span>
-            <span class="badge-tag live">EXNESS DEMO</span>
+            <span class="kpi-title" id="kpiEquityTitle">VỐN TÀI KHOẢN (EQUITY)</span>
+            <span class="badge-tag live" id="kpiEquityBadge">EXNESS DEMO</span>
           </div>
           <div class="kpi-value-row">
-            <div class="kpi-value mono" id="equityVal">$10,826.62</div>
-            <div class="kpi-diff positive" id="roiVal">+15.31%</div>
+            <div class="kpi-value mono" id="equityVal">$10,856.32</div>
+            <div class="kpi-diff positive" id="roiVal">+1.50%</div>
           </div>
-          <div class="kpi-footer">
-            <span>Số dư chốt: <strong class="mono" id="balanceVal">--</strong></span>
-            <span>Lãi ròng: <strong class="mono text-green" id="netPnlVal">--</strong></span>
+          <div class="kpi-footer-dual">
+            <div class="dual-row">
+              <span id="kpiPnlLabel">Lãi ròng hôm nay:</span>
+              <strong class="mono text-green" id="netPnlVal">+$162.35</strong>
+            </div>
+            <div class="dual-row sub-muted">
+              <span id="kpiAltPnlLabel">Toàn thời gian:</span>
+              <span class="mono text-blue" id="kpiAltPnlVal">+$1,404.01 (+14.95%)</span>
+            </div>
           </div>
         </div>
 
         <!-- KPI 2: WINRATE -->
         <div class="kpi-card">
           <div class="kpi-header">
-            <span class="kpi-title">TỈ LỆ THẮNG THỰC TẾ (WINRATE)</span>
-            <span class="badge-tag positive" id="winRateBadge">LIVE EXNESS</span>
+            <span class="kpi-title" id="kpiWinRateTitle">TỈ LỆ THẮNG (WINRATE)</span>
+            <span class="badge-tag positive" id="winRateBadge">HÔM NAY (16/09)</span>
           </div>
           <div class="kpi-value-row">
-            <div class="kpi-value mono text-green" id="winRateVal">64.3%</div>
-            <div class="mini-stat mono" id="winLossCount">27W / 15L (31 HÒA)</div>
+            <div class="kpi-value mono text-green" id="winRateVal">50.0%</div>
+            <div class="mini-stat mono" id="winLossCount">2W / 2L (0 HÒA)</div>
           </div>
-          <div class="kpi-footer">
-            <span>Lệnh gần nhất: <strong class="mono" id="lastClosedTrade">--</strong></span>
-            <button type="button" class="btn-text-link" onclick="navigateToLeaderboard()">Xem Xếp Hạng ➔</button>
+          <div class="kpi-footer-dual">
+            <div class="dual-row">
+              <span>Lệnh đã đóng: <strong class="mono" id="todayClosedCountText">4 lệnh</strong></span>
+              <button type="button" class="btn-text-link" onclick="navigateToLeaderboard()">Xem Xếp Hạng ➔</button>
+            </div>
+            <div class="dual-row sub-muted">
+              <span>Toàn thời gian:</span>
+              <span class="mono text-green" id="kpiAltWrVal">61.7% (29W / 18L)</span>
+            </div>
           </div>
         </div>
 
         <!-- KPI 3: PROFIT FACTOR -->
         <div class="kpi-card">
           <div class="kpi-header">
-            <span class="kpi-title">HỆ SỐ SINH LỜI (PROFIT FACTOR)</span>
-            <span class="badge-tag live" id="pfBadge">EXNESS ALPHA</span>
+            <span class="kpi-title" id="kpiPfTitle">HỆ SỐ SINH LỜI (PROFIT FACTOR)</span>
+            <span class="badge-tag live" id="pfBadge">HÔM NAY</span>
           </div>
           <div class="kpi-value-row">
-            <div class="kpi-value mono text-green" id="profitFactorVal">2.56</div>
-            <div class="mini-stat mono" id="kpiBestStrat">🏆 DELTA (+$959)</div>
+            <div class="kpi-value mono text-green" id="profitFactorVal">2.53</div>
+            <div class="mini-stat mono" id="kpiBestStrat">🏆 GOLD (+$268.65)</div>
           </div>
-          <div class="kpi-footer">
-            <span>Lãi gộp: <strong class="mono text-green" id="grossWinVal">+$2,364.50</strong></span>
-            <span>Thua gộp: <strong class="mono text-red" id="grossLossVal">-$925.44</strong></span>
+          <div class="kpi-footer-dual">
+            <div class="dual-row">
+              <span>Lãi gộp: <strong class="mono text-green" id="grossWinVal">+$268.65</strong></span>
+              <span>Thua gộp: <strong class="mono text-red" id="grossLossVal">-$106.30</strong></span>
+            </div>
+            <div class="dual-row sub-muted">
+              <span>PF Toàn kỳ:</span>
+              <span class="mono text-blue" id="kpiAltPfVal">2.52 (+$2,269 / -$899)</span>
+            </div>
           </div>
         </div>
 
@@ -164,19 +202,24 @@
         <div class="kpi-card">
           <div class="kpi-header">
             <span class="kpi-title">VỊ THẾ & RỦI RO (HEAT)</span>
-            <span class="badge-tag" id="heatRatioBadge">1 / 10 VỊ THẾ</span>
+            <span class="badge-tag" id="heatRatioBadge">2 / 10 VỊ THẾ</span>
           </div>
           <div class="kpi-value-row">
-            <div class="kpi-value mono" id="activePositionsCount">1 / 10</div>
+            <div class="kpi-value mono" id="activePositionsCount">2 / 10</div>
             <div class="heat-bar-wrapper">
-              <div class="heat-bar" id="heatBar" style="width: 10%;"></div>
+              <div class="heat-bar" id="heatBar" style="width: 20%;"></div>
             </div>
           </div>
-          <div class="kpi-footer">
-            <span>Đang mở: <strong class="mono text-blue" id="openSymbolsList">USOIL</strong></span>
-            <span id="maxPositionsText" style="display:none;">10</span>
-            <span>Ký quỹ tự do: <strong class="mono text-green" id="freeMarginKpiVal">$10,826.13</strong></span>
-            <span id="lastScanTime" style="display:none;">--:--:--</span>
+          <div class="kpi-footer-dual">
+            <div class="dual-row">
+              <span>Đang mở: <strong class="mono text-blue" id="openSymbolsList">BTC</strong></span>
+              <span id="maxPositionsText" style="display:none;">10</span>
+              <span>Ký quỹ: <strong class="mono text-green" id="freeMarginKpiVal">$10,603.68</strong></span>
+            </div>
+            <div class="dual-row sub-muted">
+              <span>Số dư chốt: <strong class="mono" id="balanceVal">$11,001.16</strong></span>
+              <span id="lastScanTime" style="display:none;">--:--:--</span>
+            </div>
           </div>
         </div>
       </div>
@@ -214,8 +257,8 @@
             </div>
             <div class="chart-timeline-labels">
               <span class="mono">Khởi đầu ($9,388.75)</span>
-              <span class="mono">Vượt mốc $10,000</span>
-              <span class="mono" id="chartLatestLabel">Hiện tại ($10,826.62)</span>
+              <span class="mono text-green" id="chartDayStartLabel">Đầu ngày 16/09 ($10,838.81)</span>
+              <span class="mono" id="chartLatestLabel">Hiện tại ($10,856.32)</span>
             </div>
           </div>
 
@@ -588,7 +631,8 @@
           </div>
           
           <div class="ledger-filters">
-            <button class="filter-btn active" data-filter="all">Tất cả (<span id="countAll">0</span>)</button>
+            <button class="filter-btn highlight-today active" data-filter="today">⚡ Hôm nay (<span id="countToday">0</span>)</button>
+            <button class="filter-btn" data-filter="all">Tất cả (<span id="countAll">0</span>)</button>
             <button class="filter-btn" data-filter="scalper">⚡ Scalper 1.0 (<span id="countScalper">0</span>)</button>
             <button class="filter-btn" data-filter="runner">🚀 Runner 1.5 (<span id="countRunner">0</span>)</button>
             <button class="filter-btn" data-filter="win">🟢 Thắng (<span id="countWin">0</span>)</button>

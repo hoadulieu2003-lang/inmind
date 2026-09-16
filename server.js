@@ -4,6 +4,7 @@ const path = require('path');
 const url = require('url');
 const config = require('./config.json');
 const db = require('./database');
+const { calculateDailyMetrics } = require('./metrics_calculator');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -150,6 +151,18 @@ function parseDaemonState() {
         base.assets = parseAssetsFromLog(base.openSymbols || []);
       }
 
+      // Đảm bảo khối số liệu today & allTime luôn hiện hữu
+      if (!base.today) {
+        let allTrades = [];
+        try {
+          const jFile = path.join(__dirname, 'data', 'journal.json');
+          if (fs.existsSync(jFile)) allTrades = JSON.parse(fs.readFileSync(jFile, 'utf8'));
+        } catch (e) {}
+        const calculated = calculateDailyMetrics(now, allTrades, base);
+        base.today = calculated.today;
+        base.allTime = calculated.allTime;
+      }
+
       return base;
     } catch (e) {}
   }
@@ -264,12 +277,21 @@ function parseDaemonState() {
   if (diffSec < 0) diffSec += 900;
   nextScanSeconds = diffSec;
 
+  let allTrades = [];
+  try {
+    const jFile = path.join(__dirname, 'data', 'journal.json');
+    if (fs.existsSync(jFile)) allTrades = JSON.parse(fs.readFileSync(jFile, 'utf8'));
+  } catch (e) {}
+  const calculated = calculateDailyMetrics(now, allTrades, { equity, balance });
+
   return {
     daemonActive: true,
     equity,
     initialBalance: 9388.75,
     netPnL: +(equity - 9388.75).toFixed(2),
     roi: +(((equity - 9388.75) / 9388.75) * 100).toFixed(2),
+    today: calculated.today,
+    allTime: calculated.allTime,
     openPositionsCount: openPositions.length,
     openSymbols: openPositions,
     lastScanTime: lastScan,
@@ -302,7 +324,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const TUNNEL_URL = 'https://leading-better-suits-load.trycloudflare.com';
+  const TUNNEL_URL = 'https://teams-superintendent-earlier-core.trycloudflare.com';
 
   // 1. API: System Status & Multi-Asset Telemetry
   if (pathname === '/api/status') {

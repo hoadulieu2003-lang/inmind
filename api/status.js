@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { calculateDailyMetrics } = require('../metrics_calculator');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -49,6 +50,18 @@ module.exports = async (req, res) => {
       data.maxTotalPositions = data.maxTotalPositions || 10;
       data.maxDailyLossPercent = data.maxDailyLossPercent || 20.0;
       data.breakeven = data.breakeven || { enabled: true, triggerRR: 1.0, lockTicketBOnTicketATarget: true };
+
+      if (!data.today) {
+        let allTrades = [];
+        try {
+          const jPath = path.join(process.cwd(), 'data', 'journal.json');
+          if (fs.existsSync(jPath)) allTrades = JSON.parse(fs.readFileSync(jPath, 'utf-8'));
+        } catch (je) {}
+        const calculated = calculateDailyMetrics(now, allTrades, data);
+        data.today = calculated.today;
+        data.allTime = calculated.allTime;
+      }
+
       return res.status(200).json(data);
     }
   } catch (e) {

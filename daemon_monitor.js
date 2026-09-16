@@ -1651,6 +1651,108 @@ class TradingDaemon {
       }
 
       const now = new Date();
+
+      // WP-DAILY-RESET: Tính toán chỉ số Hôm nay (Daily Performance) & Toàn thời gian (All-Time)
+      const vnDateToday = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const [yVal, mVal, dVal] = vnDateToday.split('-');
+      const vnFormat1 = `${parseInt(dVal)}/${parseInt(mVal)}/${yVal}`;
+      const vnFormat2 = `${dVal}/${mVal}/${yVal}`;
+
+      let allTrades = [];
+      try {
+        const journalPath = path.join(__dirname, 'data', 'journal.json');
+        if (fs.existsSync(journalPath)) {
+          allTrades = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
+        }
+      } catch (e) {}
+
+      // Lọc các lệnh của ngày hôm nay theo giờ Việt Nam
+      const todayTrades = allTrades.filter(t => {
+        const dStr = t.timestamp ? new Date(t.timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }) : '';
+        const vnStr = t.timeVietnam || t.time_vietnam || '';
+        return dStr === vnDateToday || vnStr.includes(vnFormat1) || vnStr.includes(vnFormat2);
+      });
+
+      const todayClosed = todayTrades.filter(t => 
+        t.status === 'WIN' || t.status === 'LOSS' || t.status === 'BREAKEVEN' || 
+        (typeof t.pnl === 'number' && t.pnl !== null && t.status !== 'OPEN')
+      );
+      const todayOpen = todayTrades.filter(t => t.status === 'OPEN' || t.status === 'RUNNING');
+
+      let todayWins = 0;
+      let todayLosses = 0;
+      let todayBreakevens = 0;
+      let todayGrossWin = 0;
+      let todayGrossLoss = 0;
+      let todayNetPnL = 0;
+
+      todayClosed.forEach(t => {
+        const pnl = typeof t.pnl === 'number' ? t.pnl : 0;
+        todayNetPnL += pnl;
+        if (pnl > 0.05 || (t.status === 'WIN' && pnl > 0)) {
+          todayWins++;
+          todayGrossWin += pnl;
+        } else if (pnl < -0.05 || t.status === 'LOSS') {
+          todayLosses++;
+          todayGrossLoss += Math.abs(pnl);
+        } else {
+          todayBreakevens++;
+        }
+      });
+
+      todayNetPnL = +todayNetPnL.toFixed(2);
+      todayGrossWin = +todayGrossWin.toFixed(2);
+      todayGrossLoss = +todayGrossLoss.toFixed(2);
+
+      const todayDecisive = todayWins + todayLosses;
+      const todayWinRate = todayDecisive > 0 ? +((todayWins / todayDecisive) * 100).toFixed(1) : 0.0;
+      const todayProfitFactor = todayGrossLoss > 0 ? +(todayGrossWin / todayGrossLoss).toFixed(2) : (todayGrossWin > 0 ? 999.0 : 0.0);
+
+      // Lấy vốn đầu ngày từ EOD snapshot hoặc tính lùi từ balance hiện tại
+      let todayStartBalance = null;
+      try {
+        const eqHistFile = path.join(__dirname, 'data', 'history', 'equity_history.json');
+        if (fs.existsSync(eqHistFile)) {
+          const hist = JSON.parse(fs.readFileSync(eqHistFile, 'utf8'));
+          const prevPoints = hist.filter(h => h.date < vnDateToday);
+          if (prevPoints.length > 0) {
+            todayStartBalance = prevPoints[prevPoints.length - 1].balance;
+          }
+        }
+      } catch (e) {}
+
+      const currentBalance = this.latestBalance || exnessStatus.equity;
+      if (!todayStartBalance) {
+        todayStartBalance = +(currentBalance - todayNetPnL).toFixed(2);
+      }
+      const todayROI = todayStartBalance > 0 ? +((todayNetPnL / todayStartBalance) * 100).toFixed(2) : 0.0;
+
+      // Tính toán All-Time
+      const allClosed = allTrades.filter(t => 
+        t.status === 'WIN' || t.status === 'LOSS' || t.status === 'BREAKEVEN' || 
+        (typeof t.pnl === 'number' && t.pnl !== null && t.status !== 'OPEN')
+      );
+      let allWins = 0;
+      let allLosses = 0;
+      let allBreakevens = 0;
+      let allGrossWin = 0;
+      let allGrossLoss = 0;
+      allClosed.forEach(t => {
+        const pnl = typeof t.pnl === 'number' ? t.pnl : 0;
+        if (pnl > 0.05 || (t.status === 'WIN' && pnl > 0)) {
+          allWins++;
+          allGrossWin += pnl;
+        } else if (pnl < -0.05 || t.status === 'LOSS') {
+          allLosses++;
+          allGrossLoss += Math.abs(pnl);
+        } else {
+          allBreakevens++;
+        }
+      });
+      const allDecisive = allWins + allLosses;
+      const allWinRate = allDecisive > 0 ? +((allWins / allDecisive) * 100).toFixed(1) : 0.0;
+      const allProfitFactor = allGrossLoss > 0 ? +(allGrossWin / allGrossLoss).toFixed(2) : 0.0;
+
       const statusData = {
         daemonActive: true,
         lastHeartbeatTime: Date.now(),
@@ -1660,6 +1762,39 @@ class TradingDaemon {
         initialBalance: 9388.75,
         netPnL: +(exnessStatus.equity - 9388.75).toFixed(2),
         roi: +(((exnessStatus.equity - 9388.75) / 9388.75) * 100).toFixed(2),
+        today: {
+          date: vnDateToday,
+          dateLabel: `${dVal}/${mVal}/${yVal}`,
+          startBalance: todayStartBalance,
+          netPnL: todayNetPnL,
+          roi: todayROI,
+          winRate: todayWinRate,
+          wins: todayWins,
+          losses: todayLosses,
+          breakevens: todayBreakevens,
+          grossWin: todayGrossWin,
+          grossLoss: todayGrossLoss,
+          profitFactor: todayProfitFactor,
+          closedTradesCount: todayClosed.length,
+          openTradesCount: todayOpen.length,
+          totalTradesToday: todayTrades.length
+        },
+        allTime: {
+          initialBalance: 9388.75,
+          equity: exnessStatus.equity,
+          balance: currentBalance,
+          netPnL: +(exnessStatus.equity - 9388.75).toFixed(2),
+          roi: +(((exnessStatus.equity - 9388.75) / 9388.75) * 100).toFixed(2),
+          winRate: allWinRate,
+          wins: allWins,
+          losses: allLosses,
+          breakevens: allBreakevens,
+          grossWin: +allGrossWin.toFixed(2),
+          grossLoss: +allGrossLoss.toFixed(2),
+          profitFactor: allProfitFactor,
+          closedTradesCount: allClosed.length,
+          totalTradesCount: allTrades.length
+        },
         openPositionsCount: exnessStatus.openPositionsCount,
         openSymbols: exnessStatus.openSymbols,
         positionsList: this.latestPositions,
