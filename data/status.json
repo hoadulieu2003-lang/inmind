@@ -1,36 +1,36 @@
 {
   "daemonActive": true,
-  "lastHeartbeatTime": 1789486456142,
-  "lastHeartbeatStr": "22:34:16",
-  "equity": 10836.69,
-  "balance": 10851.48,
+  "lastHeartbeatTime": 1789530773416,
+  "lastHeartbeatStr": "10:52:53",
+  "equity": 10911.02,
+  "balance": 11001.16,
   "initialBalance": 9388.75,
-  "netPnL": 1447.94,
-  "roi": 15.42,
-  "openPositionsCount": 1,
+  "netPnL": 1522.27,
+  "roi": 16.21,
+  "openPositionsCount": 2,
   "openSymbols": [
-    "USOIL"
+    "BTC"
   ],
   "positionsList": [
     {
-      "symbol": "USOIL",
+      "symbol": "BTC",
       "side": "Sell",
-      "lot": 0.01,
-      "openPrice": 98.942,
-      "currentPrice": 100.421,
-      "floatingPnl": -14.79,
-      "ticketCount": 1,
+      "lot": 1,
+      "openPrice": 75630.06,
+      "currentPrice": 75720.19,
+      "floatingPnl": -90.14,
+      "ticketCount": 2,
       "layersCount": 1,
       "isProfitLocked": false,
-      "lockedSLPrice": 103.77,
+      "lockedSLPrice": 76054.68,
       "lockedProfitR": 0,
       "lockedProfitUSD": null
     }
   ],
-  "freeMargin": 10836.2,
-  "marginLevel": 2211569.39,
-  "lastScanTime": "22:34:16",
-  "nextScanSeconds": 649,
+  "freeMargin": 10721.94,
+  "marginLevel": 5770.58,
+  "lastScanTime": "10:51:25",
+  "nextScanSeconds": 432,
   "twinOrders": {
     "enabled": true,
     "scalperRR": 1,
@@ -43,64 +43,53 @@
   "tieredRisk": {
     "enabled": true,
     "rank1Strategy": "ENGINE_DELTA",
-    "rank1RiskPercent": 5,
+    "rank1RiskPercent": 10,
     "rank1AssetWhitelist": [
       "BTCUSD",
-      "BTC"
+      "BTC",
+      "USDJPY",
+      "GOLD"
     ],
-    "rank1SecondaryCapPercent": 2,
-    "rank2And3Strategies": [
-      "ENGINE_BETA",
-      "ENGINE_THETA"
+    "rank1SecondaryCapPercent": 5,
+    "rank2Strategies": [
+      "ENGINE_BETA"
     ],
-    "rank2And3RiskPercent": 2,
-    "baseRiskPercent": 1,
+    "rank2RiskPercent": 5,
+    "baseRiskPercent": 2,
     "topRanksAllowed": [
       1,
-      2,
-      3
+      2
     ],
-    "topRankRiskPercent": 5,
+    "topRankRiskPercent": 10,
     "topStrategies": [
       "ENGINE_DELTA",
-      "ENGINE_BETA",
-      "ENGINE_THETA"
+      "ENGINE_BETA"
     ]
   },
   "activeEngines": {
-    "GOLD": [
-      "ENGINE_DELTA",
-      "ENGINE_BETA",
-      "ENGINE_ALPHA",
-      "ENGINE_LAMBDA",
-      "ENGINE_OMEGA"
-    ],
-    "USOIL": [
-      "ENGINE_DELTA",
-      "ENGINE_EPSILON",
-      "ENGINE_BETA",
-      "ENGINE_ALPHA",
-      "ENGINE_LAMBDA",
-      "ENGINE_OMEGA"
-    ],
     "BTCUSD": [
       "ENGINE_DELTA",
       "ENGINE_BETA",
-      "ENGINE_ZETA",
-      "ENGINE_KAPPA",
-      "ENGINE_ALPHA",
-      "ENGINE_LAMBDA",
       "ENGINE_OMEGA"
     ],
-    "GBPUSD": [
+    "USDJPY": [
       "ENGINE_EPSILON",
+      "ENGINE_OMEGA",
+      "ENGINE_BETA",
+      "ENGINE_ALPHA"
+    ],
+    "GOLD": [
+      "ENGINE_OMEGA",
+      "ENGINE_BETA",
+      "ENGINE_ALPHA"
+    ],
+    "GBPUSD": [
       "ENGINE_BETA",
       "ENGINE_ALPHA"
     ],
     "US500": [
       "ENGINE_DELTA",
-      "ENGINE_ALPHA",
-      "ENGINE_THETA"
+      "ENGINE_ALPHA"
     ]
   },
   "maxTotalPositions": 10,
