@@ -8,7 +8,9 @@ const {
   calcLiquiditySweepFade,
   splitTwinLots, 
   calcTwinTakeProfits,
-  calcLockProfitSL
+  calcLockProfitSL,
+  calcDynSlBuffer,
+  checkSessionFilter
 } = require('./daemon_monitor.js');
 const riskManager = require('./risk_manager.js');
 const config = require('./config.json');
@@ -178,6 +180,27 @@ async function runTests() {
     dayBars[39].time = Math.floor(new Date('2026-09-15T14:45:00.000Z').getTime() / 1000);
     const epsilonOutside = calcAsianRangeSweep(dayBars);
     assert('EPSILON không kích hoạt tín hiệu khi ngoài phiên London (14:30 UTC thuộc US session)', epsilonOutside.buySignal === false && epsilonOutside.session === 'US');
+
+    // Case 4.3: Judas Swing mở cửa London 07:15 UTC (14:15 VN) đón trọn cú lừa quét đỉnh Asian High
+    const judasBars = dayBars.slice(0, 30); // 00:00 - 07:00 UTC
+    judasBars[10].high = 105.00;
+    judasBars[20].low = 100.00;
+    // Nến đóng hoàn thành lúc 07:15 UTC (14:15 VN) quét vọt đỉnh 105.00 lên 105.80 rồi đóng nến đỏ tại 104.50
+    judasBars.push({
+      time: Math.floor(new Date('2026-09-15T07:15:00.000Z').getTime() / 1000),
+      open: 104.80,
+      high: 105.80, // Quét thủng đỉnh 105.00
+      low: 104.20,
+      close: 104.50, // Đóng nến đỏ dưới đỉnh 105.00
+      volume: 400
+    });
+    // Nến đang chạy lúc 07:30 UTC
+    judasBars.push({
+      time: Math.floor(new Date('2026-09-15T07:30:00.000Z').getTime() / 1000),
+      open: 104.50, high: 104.70, low: 104.30, close: 104.40, volume: 50
+    });
+    const epsilonJudas = calcAsianRangeSweep(judasBars);
+    assert('EPSILON đón trọn Judas Swing 07:15 UTC (14:15 VN) kích hoạt sellSignal = true', epsilonJudas.sellSignal === true && epsilonJudas.session === 'LONDON', `sellSignal: ${epsilonJudas.sellSignal}, session: ${epsilonJudas.session}`);
   }
 
   // TEST 5: Kiểm tra Động cơ KAPPA: Volume Price Action thuần JS
@@ -223,7 +246,7 @@ async function runTests() {
     assert('RiskManager duyệt lệnh với R:R = 1.0 (minRiskRewardRatio = 1.0)', posGold.approved === true, `R:R: ${posGold.riskRewardRatio}, Reason: ${posGold.reason || 'OK'}`);
     assert('RiskManager tính toán lot hợp lý theo rủi ro ~$95 USD', posGold.lotSize > 0 && posGold.actualRiskAmount <= 100.0, `Lot: ${posGold.lotSize}, Rủi ro thực tế: $${posGold.actualRiskAmount}`);
 
-    // Kiểm tra Tiered Risk: Top 1 (DELTA trên BTC 5.0%), Top 2 (BETA 2.0%), Top 3 (THETA 2.0%), Base (ALPHA 1.0%), Counter-Trend (LAMBDA 0.5%)
+    // Kiểm tra Tiered Risk: Top 1 (DELTA trên BTC 10.0%), Top 2 (BETA 5.0%), Top 3/Cơ sở (ALPHA 2.0%), Counter-Trend (LAMBDA/OMEGA 2.0%)
     const posDelta = riskManager.calculatePosition({
       symbol: 'BTCUSD',
       strategy: 'ENGINE_DELTA (HALFTREND_ADX)',
@@ -233,7 +256,7 @@ async function runTests() {
       takeProfitPrice: 71000,
       currentSpread: 1
     });
-    assert('Top 1 (ENGINE_DELTA trên BTCUSD) được cấp quyền rủi ro 5.0% vốn', posDelta.riskPercent === 5.0 && posDelta.actualRiskAmount === 500, `Risk%: ${posDelta.riskPercent}, USD: $${posDelta.actualRiskAmount}`);
+    assert('Top 1 (ENGINE_DELTA trên BTCUSD) được cấp quyền rủi ro 10.0% vốn', posDelta.riskPercent === 10.0 && posDelta.actualRiskAmount === 1000, `Risk%: ${posDelta.riskPercent}, USD: $${posDelta.actualRiskAmount}`);
 
     const posBeta = riskManager.calculatePosition({
       symbol: 'BTCUSD',
@@ -244,7 +267,7 @@ async function runTests() {
       takeProfitPrice: 71000,
       currentSpread: 1
     });
-    assert('Top 2 (ENGINE_BETA) được cấp quyền rủi ro 2.0% vốn', posBeta.riskPercent === 2.0 && posBeta.actualRiskAmount === 200, `Risk%: ${posBeta.riskPercent}, USD: $${posBeta.actualRiskAmount}`);
+    assert('Top 2 (ENGINE_BETA) được cấp quyền rủi ro 5.0% vốn', posBeta.riskPercent === 5.0 && posBeta.actualRiskAmount === 500, `Risk%: ${posBeta.riskPercent}, USD: $${posBeta.actualRiskAmount}`);
 
     const posTheta = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -255,7 +278,7 @@ async function runTests() {
       takeProfitPrice: 2010,
       currentSpread: 0.2
     });
-    assert('Top 3 (ENGINE_THETA) được cấp quyền rủi ro 2.0% vốn', posTheta.riskPercent === 2.0 && posTheta.actualRiskAmount === 200, `Risk%: ${posTheta.riskPercent}, USD: $${posTheta.actualRiskAmount}`);
+    assert('Động cơ ngoài Hạng 1-2 (ENGINE_THETA) duy trì rủi ro cơ sở 2.0% vốn', posTheta.riskPercent === 2.0 && posTheta.actualRiskAmount === 200, `Risk%: ${posTheta.riskPercent}, USD: $${posTheta.actualRiskAmount}`);
 
     const posAlpha = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -266,7 +289,7 @@ async function runTests() {
       takeProfitPrice: 2010,
       currentSpread: 0.2
     });
-    assert('Động cơ ngoài Top 3 (ENGINE_ALPHA) duy trì rủi ro cơ sở 1.0% vốn', posAlpha.riskPercent === 1.0 && posAlpha.actualRiskAmount === 100, `Risk%: ${posAlpha.riskPercent}, USD: $${posAlpha.actualRiskAmount}`);
+    assert('Động cơ ngoài Top 2 (ENGINE_ALPHA) duy trì rủi ro cơ sở 2.0% vốn', posAlpha.riskPercent === 2.0 && posAlpha.actualRiskAmount === 200, `Risk%: ${posAlpha.riskPercent}, USD: $${posAlpha.actualRiskAmount}`);
 
     const posLambda = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -277,7 +300,7 @@ async function runTests() {
       takeProfitPrice: 2015,
       currentSpread: 0.2
     });
-    assert('Động cơ Counter-Trend (ENGINE_LAMBDA) áp dụng rủi ro phòng vệ 0.5% vốn', posLambda.riskPercent === 0.5 && posLambda.actualRiskAmount === 50, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
+    assert('Động cơ Counter-Trend (ENGINE_LAMBDA) áp dụng rủi ro 2.0% vốn', posLambda.riskPercent === 2.0 && posLambda.actualRiskAmount === 200, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
 
     // Kiểm tra checkIsTopRankedStrategy trên TradingDaemon
     const isDeltaTop = await daemon.checkIsTopRankedStrategy('ENGINE_DELTA (HALFTREND_ADX)', 'BTCUSD');
@@ -482,6 +505,130 @@ async function runTests() {
     // Traditional Breakeven (lockR = 0): Entry 2000 + spreadBuffer 0.30 = 2000.30
     const beZero = calcLockProfitSL('BUY', 2000.00, 1990.00, 0.0, 0.30, 2);
     assert('Hòa Vốn Truyền Thống (lockR = 0): SL đặt tại Entry + Buffer = 2000.30', beZero === 2000.30, `Thực tế: ${beZero}`);
+  }
+
+  // TEST 14: Kiểm tra Bộ Lọc Khung Giờ Vàng (Allowed Windows) & Vùng Tử Địa (Blackout Windows) (checkSessionFilter)
+  console.log('\n--- 14. Kiểm tra Bộ Lọc Khung Giờ Vàng & Vùng Tử Địa (checkSessionFilter) ---');
+  {
+    const goldFilter = config.symbols.GOLD.sessionFilter;
+    const usdjpyFilter = config.symbols.USDJPY.sessionFilter;
+    const us500Filter = config.symbols.US500.sessionFilter;
+
+    // Helper tạo Date với giờ VN cụ thể: vnHour, vnMin (UTC = vnHour - 7)
+    function makeVnDate(hourVN, minVN) {
+      const d = new Date('2026-09-16T00:00:00.000Z');
+      const utcHour = (hourVN - 7 + 24) % 24;
+      d.setUTCHours(utcHour, minVN, 0, 0);
+      return d;
+    }
+
+    // 14.1. GOLD: Trong khung giờ vàng sáng 08:30 VN
+    const goldMorning = checkSessionFilter(goldFilter, makeVnDate(8, 30));
+    assert('GOLD: 08:30 VN thuộc Khung Giờ Vàng (Phiên Sáng Hồi Nhịp)', goldMorning.allowed === true && goldMorning.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${goldMorning.allowed}, Reason: ${goldMorning.reason}`);
+
+    // 14.2. GOLD: Rơi vào vùng tử địa 17:00 VN (Tử Địa Phân Phối Âu 16:15 - 19:30)
+    const goldEuroBlackout = checkSessionFilter(goldFilter, makeVnDate(17, 0));
+    assert('GOLD: 17:00 VN bị chặn bởi Vùng Tử Địa (16:15 - 19:30 VN)', goldEuroBlackout.allowed === false && goldEuroBlackout.reason === 'BLACKOUT_WINDOW', `Allowed: ${goldEuroBlackout.allowed}, Reason: ${goldEuroBlackout.reason}`);
+
+    // 14.3. GOLD: Rơi vào vùng tử địa đêm muộn vắt qua ngày 23:30 VN (22:45 - 08:00)
+    const goldNightBlackout = checkSessionFilter(goldFilter, makeVnDate(23, 30));
+    assert('GOLD: 23:30 VN bị chặn bởi Vùng Tử Địa Đêm Muộn (22:45 - 08:00 VN)', goldNightBlackout.allowed === false && goldNightBlackout.reason === 'BLACKOUT_WINDOW', `Allowed: ${goldNightBlackout.allowed}, Reason: ${goldNightBlackout.reason}`);
+
+    // 14.4. GOLD: Rạng sáng 03:00 VN (trong blackout 22:45 - 08:00)
+    const goldEarlyMorning = checkSessionFilter(goldFilter, makeVnDate(3, 0));
+    assert('GOLD: 03:00 VN sáng sớm bị chặn bởi Vùng Tử Địa Đêm Muộn', goldEarlyMorning.allowed === false && goldEarlyMorning.reason === 'BLACKOUT_WINDOW', `Allowed: ${goldEarlyMorning.allowed}`);
+
+    // 14.5. USDJPY: Nghỉ trưa Tokyo 11:30 VN (Blackout 10:30 - 13:30)
+    const jpyLunch = checkSessionFilter(usdjpyFilter, makeVnDate(11, 30));
+    assert('USDJPY: 11:30 VN bị chặn bởi Vùng Tử Địa Nghỉ Trưa Tokyo', jpyLunch.allowed === false && jpyLunch.reason === 'BLACKOUT_WINDOW', `Allowed: ${jpyLunch.allowed}, Reason: ${jpyLunch.reason}`);
+
+    // 14.6. USDJPY: London Judas Sweep 14:30 VN (Allowed 14:00 - 16:30)
+    const jpyLondon = checkSessionFilter(usdjpyFilter, makeVnDate(14, 30));
+    assert('USDJPY: 14:30 VN thuộc Khung Giờ Vàng London Judas Sweep Reversal', jpyLondon.allowed === true && jpyLondon.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${jpyLondon.allowed}`);
+
+    // 14.7. US500: Legacy filter 20:00 VN (Allowed 19:30 - 23:30)
+    const us500Ny = checkSessionFilter(us500Filter, makeVnDate(20, 0));
+    assert('US500: 20:00 VN trong phiên New York cho phép', us500Ny.allowed === true, `Allowed: ${us500Ny.allowed}`);
+
+    // 14.8. US500: Ngoài phiên 10:00 VN
+    const us500Asia = checkSessionFilter(us500Filter, makeVnDate(10, 0));
+    assert('US500: 10:00 VN ngoài phiên New York bị từ chối', us500Asia.allowed === false && us500Asia.reason === 'OUTSIDE_ALLOWED_HOURS', `Allowed: ${us500Asia.allowed}`);
+
+    // 14.9. BTCUSD: Không có sessionFilter (Giao dịch 24/7)
+    const btc247 = checkSessionFilter(config.symbols.BTCUSD.sessionFilter, makeVnDate(3, 0));
+    assert('BTCUSD: Không cấu hình sessionFilter được cấp phép 24/7', btc247.allowed === true && btc247.reason === 'SESSION_FILTER_DISABLED');
+
+    // 14.10. GOLD: Đúng 08:00 VN biên mở phiên sáng - Khung Giờ Vàng được kích hoạt và không bị chặn bởi Đêm Muộn
+    const gold0800 = checkSessionFilter(goldFilter, makeVnDate(8, 0));
+    assert('GOLD: Đúng 08:00 VN kích hoạt Khung Giờ Vàng (không bị cản bởi Đêm Muộn 22:45-08:00)', gold0800.allowed === true && gold0800.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${gold0800.allowed}, Reason: ${gold0800.reason}`);
+
+    // 14.11. GOLD: Đúng 19:30 VN biên mở phiên New York Prime - Khung Giờ Vàng được kích hoạt và không bị chặn bởi Tử Địa Âu
+    const gold1930 = checkSessionFilter(goldFilter, makeVnDate(19, 30));
+    assert('GOLD: Đúng 19:30 VN kích hoạt Khung Giờ Vàng NY Prime (không bị cản bởi Tử Địa Âu 16:15-19:30)', gold1930.allowed === true && gold1930.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${gold1930.allowed}, Reason: ${gold1930.reason}`);
+
+    // 14.12. GOLD: Đúng 16:15 VN biên đóng London chuyển giao sang Tử Địa Phân Phối Âu
+    const gold1615 = checkSessionFilter(goldFilter, makeVnDate(16, 15));
+    assert('GOLD: Đúng 16:15 VN kích hoạt Vùng Tử Địa Phân Phối Âu', gold1615.allowed === false && gold1615.reason === 'BLACKOUT_WINDOW', `Allowed: ${gold1615.allowed}, Reason: ${gold1615.reason}`);
+
+    // 14.13. GOLD: Đúng 22:45 VN biên kết thúc phiên New York chuyển giao sang Đêm Muộn Dãn Spread
+    const gold2245 = checkSessionFilter(goldFilter, makeVnDate(22, 45));
+    assert('GOLD: Đúng 22:45 VN kích hoạt Vùng Tử Địa Đêm Muộn Dãn Spread', gold2245.allowed === false && gold2245.reason === 'BLACKOUT_WINDOW', `Allowed: ${gold2245.allowed}, Reason: ${gold2245.reason}`);
+
+    // 14.14. USDJPY: Đúng 08:00 VN biên mở Tokyo Fix Nakane Fade - Khung Giờ Vàng được kích hoạt
+    const jpy0800 = checkSessionFilter(usdjpyFilter, makeVnDate(8, 0));
+    assert('USDJPY: Đúng 08:00 VN kích hoạt Khung Giờ Vàng Tokyo Fix (không bị cản bởi Đêm Muộn 22:30-08:00)', jpy0800.allowed === true && jpy0800.reason === 'IN_ALLOWED_WINDOW', `Allowed: ${jpy0800.allowed}, Reason: ${jpy0800.reason}`);
+
+    // 14.15. USDJPY: Đúng 10:30 VN bắt đầu Nghỉ Trưa Tokyo Tê Liệt - Bị chặn đúng lúc 10:30 VN
+    const jpy1030 = checkSessionFilter(usdjpyFilter, makeVnDate(10, 30));
+    assert('USDJPY: Đúng 10:30 VN bị chặn bởi Vùng Tử Địa Nghỉ Trưa Tokyo', jpy1030.allowed === false && jpy1030.reason === 'BLACKOUT_WINDOW', `Allowed: ${jpy1030.allowed}, Reason: ${jpy1030.reason}`);
+  }
+
+  // TEST 15: Kiểm tra Đệm Stop Loss Động theo ATR14 (calcDynSlBuffer)
+  console.log('\n--- 15. Kiểm tra Đệm Stop Loss Động theo ATR14 (calcDynSlBuffer) ---');
+  {
+    // 15.1. GOLD: max(0.40 * ATR, minBuffer 4.5)
+    // Case high ATR = 20.0 -> 0.40 * 20 = 8.0 > 4.5 -> buffer = 8.0
+    const bufGoldHigh = calcDynSlBuffer('GOLD', 20.0, config.symbols.GOLD.minAtrBuffer || 4.5);
+    assert('GOLD (High ATR=20): Đệm động bung rộng 8.0 (0.40 * 20.0)', bufGoldHigh === 8.0, `Buffer: ${bufGoldHigh}`);
+
+    // Case low ATR = 5.0 -> 0.40 * 5.0 = 2.0 < 4.5 -> buffer = 4.5
+    const bufGoldLow = calcDynSlBuffer('GOLD', 5.0, config.symbols.GOLD.minAtrBuffer || 4.5);
+    assert('GOLD (Low ATR=5): Đệm giữ sàn an toàn 4.5', bufGoldLow === 4.5, `Buffer: ${bufGoldLow}`);
+
+    // 15.2. USDJPY: max(1.0 * ATR, minBuffer 0.15)
+    // High ATR = 0.35 -> 1.0 * 0.35 = 0.35 > 0.15 -> buffer = 0.35
+    const bufJpyHigh = calcDynSlBuffer('USDJPY', 0.35, 0.15);
+    assert('USDJPY (ATR=0.35): Đệm động 0.35', bufJpyHigh === 0.35, `Buffer: ${bufJpyHigh}`);
+
+    // Low ATR = 0.08 -> max(0.08, 0.15) = 0.15
+    const bufJpyLow = calcDynSlBuffer('USDJPY', 0.08, 0.15);
+    assert('USDJPY (ATR=0.08): Đệm giữ sàn an toàn 0.15', bufJpyLow === 0.15, `Buffer: ${bufJpyLow}`);
+
+    // 15.3. BTCUSD: max(1.0 * ATR, minBuffer 250)
+    // High ATR = 800 -> 800
+    const bufBtcHigh = calcDynSlBuffer('BTCUSD', 800, 250);
+    assert('BTCUSD (ATR=800): Đệm động 800', bufBtcHigh === 800, `Buffer: ${bufBtcHigh}`);
+
+    // Low ATR = 100 -> sàn 250
+    const bufBtcLow = calcDynSlBuffer('BTCUSD', 100, 250);
+    assert('BTCUSD (ATR=100): Đệm giữ sàn 250', bufBtcLow === 250, `Buffer: ${bufBtcLow}`);
+
+    // 15.4. GBPUSD: minBuffer || 2.0
+    const bufGbp = calcDynSlBuffer('GBPUSD', 0.0050, 0.0015);
+    assert('GBPUSD: Sử dụng minAtrBuffer = 0.0015', bufGbp === 0.0015, `Buffer: ${bufGbp}`);
+  }
+
+  // TEST 16: Kiểm tra Đồng Bộ Mã Nguồn evaluatePage trong daemon_monitor.js
+  console.log('\n--- 16. Kiểm tra Đồng Bộ Mã Nguồn evaluatePage (CDP In-Browser Execution) ---');
+  {
+    const daemonSrc = fs.readFileSync(path.join(__dirname, 'daemon_monitor.js'), 'utf8');
+    // Kiểm tra rằng mã nguồn evaluatePage trong browser chứa curUtcHour >= 7 && curUtcHour < 14
+    const evalMatches = daemonSrc.match(/curUtcHour >= 7 && curUtcHour < 14/g);
+    assert('daemon_monitor.js: Cả hàm Node.js lẫn evaluatePage trong browser đều áp dụng curUtcHour >= 7', evalMatches && evalMatches.length >= 2, `Số lượng khớp: ${evalMatches ? evalMatches.length : 0}`);
+
+    // Kiểm tra rằng bộ lọc nến phiên Á loại trừ bh < 7 trong cả 2 nơi
+    const asianMatches = daemonSrc.match(/bh >= 0 && bh < 7/g);
+    assert('daemon_monitor.js: Cả Node.js lẫn evaluatePage đều xác định phiên Á bh < 7 (00:00 - 07:00 UTC)', asianMatches && asianMatches.length >= 2, `Số lượng khớp: ${asianMatches ? asianMatches.length : 0}`);
   }
 
   console.log('\n======================================================================');

@@ -154,20 +154,25 @@ function calcAsianRangeSweep(barsList) {
   const curUtcMonth = d.getUTCMonth();
   const curUtcYear = d.getUTCFullYear();
 
-  // Xác định High/Low phiên Á 00:00 - 08:00 UTC
+  // Xác định High/Low phiên Á 00:00 - 07:00 UTC (trước khi London mở cửa 07:00 UTC / 14:00 VN)
+  // Đảm bảo loại trừ chính nến confirmedBar (bTime < barMs) để tránh nến quét râu bị tính vào biên Á
   let asianBars = barsList.filter(b => {
-    const bd = new Date(b.time > 1e11 ? b.time : b.time * 1000);
+    const bTime = b.time > 1e11 ? b.time : b.time * 1000;
+    const bd = new Date(bTime);
+    const bh = bd.getUTCHours();
     return bd.getUTCFullYear() === curUtcYear &&
            bd.getUTCMonth() === curUtcMonth &&
            bd.getUTCDate() === curUtcDay &&
-           bd.getUTCHours() >= 0 && bd.getUTCHours() < 8;
+           bh >= 0 && bh < 7 && bTime < barMs;
   });
 
   if (asianBars.length < 4) {
     asianBars = barsList.filter(b => {
-      const bd = new Date(b.time > 1e11 ? b.time : b.time * 1000);
-      return bd.getUTCHours() >= 0 && bd.getUTCHours() < 8;
-    }).slice(-32);
+      const bTime = b.time > 1e11 ? b.time : b.time * 1000;
+      const bd = new Date(bTime);
+      const bh = bd.getUTCHours();
+      return bh >= 0 && (curUtcHour >= 7 ? bh < 7 : bh < 8) && bTime < barMs;
+    }).slice(-28);
   }
 
   if (asianBars.length === 0) {
@@ -177,18 +182,18 @@ function calcAsianRangeSweep(barsList) {
   const asianHigh = Math.max(...asianBars.map(b => b.high));
   const asianLow = Math.min(...asianBars.map(b => b.low));
 
-  // Nến phiên London 08:00 - 14:00 UTC quét râu vượt biên rồi đóng nến rút râu ngược lại
-  const isLondon = curUtcHour >= 8 && curUtcHour < 14;
+  // Nến phiên London 07:00 - 14:00 UTC (14:00 - 21:00 VN) đón trọn cú lừa Judas Swing mở cửa London
+  const isLondon = curUtcHour >= 7 && curUtcHour < 14;
   const buySweep = isLondon && confirmedBar.low < asianLow && confirmedBar.close >= asianLow && confirmedBar.close > confirmedBar.open;
   const sellSweep = isLondon && confirmedBar.high > asianHigh && confirmedBar.close <= asianHigh && confirmedBar.close < confirmedBar.open;
 
-  const decSweep = confirmedBar.close < 5 ? 5 : 2;
+  const decSweep = confirmedBar.close < 5 ? 5 : (confirmedBar.close < 500 ? 3 : 2);
   return {
     buySignal: buySweep,
     sellSignal: sellSweep,
     asianHigh: +asianHigh.toFixed(decSweep),
     asianLow: +asianLow.toFixed(decSweep),
-    session: isLondon ? 'LONDON' : (curUtcHour < 8 ? 'ASIAN' : 'US')
+    session: isLondon ? 'LONDON' : (curUtcHour < 7 ? 'ASIAN' : 'US')
   };
 }
 
@@ -403,6 +408,118 @@ function calcLockProfitSL(action, entryPrice, stopLoss, lockR = 0.5, spreadBuffe
   } else {
     return +(entryPrice - lockDistance - (lockR > 0 ? 0 : spreadBuffer)).toFixed(decimals);
   }
+}
+
+// 7. Tính toán Đệm Stop Loss Động theo ATR14 thực tế
+function calcDynSlBuffer(symbolName, atr, minAtrBuffer) {
+  const s = (symbolName || '').toUpperCase();
+  if (s.includes('GOLD') || s.includes('XAU')) {
+    return Math.max(0.40 * (atr || 12.0), minAtrBuffer || 4.5);
+  } else if (s.includes('JPY')) {
+    return Math.max(1.0 * (atr || 0.10), minAtrBuffer || 0.15);
+  } else if (s.includes('BTC')) {
+    return Math.max(1.0 * (atr || 250), minAtrBuffer || 250);
+  } else {
+    return minAtrBuffer || 2.0;
+  }
+}
+
+function parseTimeToMinutes(str) {
+  if (typeof str === 'number') return str * 60;
+  if (typeof str !== 'string') return 0;
+  const [h, m] = str.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+function isTimeInWindow(totalMinutes, startMinutes, endMinutes, inclusiveEnd = true) {
+  if (startMinutes <= endMinutes) {
+    return inclusiveEnd
+      ? (totalMinutes >= startMinutes && totalMinutes <= endMinutes)
+      : (totalMinutes >= startMinutes && totalMinutes < endMinutes);
+  }
+  // Khung giờ vắt qua nửa đêm (ví dụ 22:45 -> 08:00)
+  return inclusiveEnd
+    ? (totalMinutes >= startMinutes || totalMinutes <= endMinutes)
+    : (totalMinutes >= startMinutes || totalMinutes < endMinutes);
+}
+
+// 8. Bộ lọc Khung Giờ Vàng (Allowed Windows) & Vùng Tử Địa (Blackout Windows) theo giờ VN
+function checkSessionFilter(sessionFilter, date = new Date()) {
+  if (!sessionFilter || !sessionFilter.enabled) {
+    return { allowed: true, reason: 'SESSION_FILTER_DISABLED' };
+  }
+
+  const vnHour = (date.getUTCHours() + 7) % 24;
+  const vnMinute = date.getUTCMinutes();
+  const totalVnMinutes = vnHour * 60 + vnMinute;
+  const timeVNStr = `${String(vnHour).padStart(2, '0')}:${String(vnMinute).padStart(2, '0')}`;
+
+  // 1. Kiểm tra Vùng Tử Địa (Blackout Windows) - Bị chặn tuyệt đối nếu rơi vào đây
+  // Lưu ý: Biên kết thúc của Vùng Tử Địa mang tính chất biên mở (exclusive: < endMinutes)
+  // để nhường quyền chuyển giao chuẩn xác cho Khung Giờ Vàng mở cửa ngay lúc đó (ví dụ 08:00 hay 19:30 VN).
+  if (Array.isArray(sessionFilter.blackoutWindowsVN) && sessionFilter.blackoutWindowsVN.length > 0) {
+    const hitBlackout = sessionFilter.blackoutWindowsVN.find(w =>
+      isTimeInWindow(totalVnMinutes, parseTimeToMinutes(w.start), parseTimeToMinutes(w.end), false)
+    );
+    if (hitBlackout) {
+      return {
+        allowed: false,
+        reason: 'BLACKOUT_WINDOW',
+        desc: hitBlackout.desc || 'Vùng tử địa',
+        window: `${hitBlackout.start} - ${hitBlackout.end}`,
+        currentTimeVN: timeVNStr
+      };
+    }
+  }
+
+  // 2. Kiểm tra Khung Giờ Vàng Cho Phép (Allowed Windows)
+  if (Array.isArray(sessionFilter.allowedWindowsVN) && sessionFilter.allowedWindowsVN.length > 0) {
+    const matched = sessionFilter.allowedWindowsVN.find(w =>
+      isTimeInWindow(totalVnMinutes, parseTimeToMinutes(w.start), parseTimeToMinutes(w.end), true)
+    );
+    if (!matched) {
+      return {
+        allowed: false,
+        reason: 'OUTSIDE_ALLOWED_WINDOWS',
+        desc: sessionFilter.description || 'Ngoài khung giờ vàng cho phép',
+        currentTimeVN: timeVNStr
+      };
+    }
+    return {
+      allowed: true,
+      reason: 'IN_ALLOWED_WINDOW',
+      desc: matched.desc || 'Khung giờ vàng',
+      window: `${matched.start} - ${matched.end}`,
+      currentTimeVN: timeVNStr
+    };
+  }
+
+  // 3. Fallback: Hỗ trợ cấu hình legacy allowedHoursVN
+  if (Array.isArray(sessionFilter.allowedHoursVN) && sessionFilter.allowedHoursVN.length > 0) {
+    const startH = sessionFilter.allowedHoursVN[0] ?? 19;
+    const endH = sessionFilter.allowedHoursVN[sessionFilter.allowedHoursVN.length - 1] ?? 23;
+    const allowedStart = startH * 60 + (sessionFilter.startMinute || 0);
+    const allowedEnd = endH * 60 + (sessionFilter.endMinute || 0);
+
+    const isInSession = isTimeInWindow(totalVnMinutes, allowedStart, allowedEnd, true);
+    if (!isInSession) {
+      return {
+        allowed: false,
+        reason: 'OUTSIDE_ALLOWED_HOURS',
+        desc: sessionFilter.description || 'Chỉ giao dịch phiên chính',
+        currentTimeVN: timeVNStr
+      };
+    }
+    return {
+      allowed: true,
+      reason: 'IN_ALLOWED_WINDOW',
+      desc: sessionFilter.description || 'Phiên chính',
+      window: `${String(startH).padStart(2, '0')}:${String(sessionFilter.startMinute || 0).padStart(2, '0')} - ${String(endH).padStart(2, '0')}:${String(sessionFilter.endMinute || 0).padStart(2, '0')}`,
+      currentTimeVN: timeVNStr
+    };
+  }
+
+  return { allowed: true, reason: 'APPROVED', currentTimeVN: timeVNStr };
 }
 
 class TradingDaemon {
@@ -902,7 +1019,7 @@ class TradingDaemon {
 
           // 6. Thuật toán Asian Range Sweep (London Liquidity Sweep) thuần JS
           function calcAsianRangeSweep(barsList) {
-            const n = barsList.length;
+            const n = barsList ? barsList.length : 0;
             if (n < 20) return { buySignal: false, sellSignal: false, asianHigh: null, asianLow: null, session: 'UNKNOWN' };
             const evalIdx = n >= 2 ? n - 2 : n - 1;
             const confirmedBar = barsList[evalIdx];
@@ -913,20 +1030,25 @@ class TradingDaemon {
             const curUtcMonth = d.getUTCMonth();
             const curUtcYear = d.getUTCFullYear();
 
-            // Xác định High/Low phiên Á 00:00 - 08:00 UTC
+            // Xác định High/Low phiên Á 00:00 - 07:00 UTC (trước khi London mở cửa 07:00 UTC / 14:00 VN)
+            // Đảm bảo loại trừ chính nến confirmedBar (bTime < barMs) để tránh nến quét râu bị tính vào biên Á
             let asianBars = barsList.filter(b => {
-              const bd = new Date(b.time > 1e11 ? b.time : b.time * 1000);
+              const bTime = b.time > 1e11 ? b.time : b.time * 1000;
+              const bd = new Date(bTime);
+              const bh = bd.getUTCHours();
               return bd.getUTCFullYear() === curUtcYear &&
                      bd.getUTCMonth() === curUtcMonth &&
                      bd.getUTCDate() === curUtcDay &&
-                     bd.getUTCHours() >= 0 && bd.getUTCHours() < 8;
+                     bh >= 0 && bh < 7 && bTime < barMs;
             });
 
             if (asianBars.length < 4) {
               asianBars = barsList.filter(b => {
-                const bd = new Date(b.time > 1e11 ? b.time : b.time * 1000);
-                return bd.getUTCHours() >= 0 && bd.getUTCHours() < 8;
-              }).slice(-32);
+                const bTime = b.time > 1e11 ? b.time : b.time * 1000;
+                const bd = new Date(bTime);
+                const bh = bd.getUTCHours();
+                return bh >= 0 && (curUtcHour >= 7 ? bh < 7 : bh < 8) && bTime < barMs;
+              }).slice(-28);
             }
 
             if (asianBars.length === 0) {
@@ -936,17 +1058,18 @@ class TradingDaemon {
             const asianHigh = Math.max(...asianBars.map(b => b.high));
             const asianLow = Math.min(...asianBars.map(b => b.low));
 
-            // Nến phiên London 08:00 - 14:00 UTC quét râu vượt biên rồi đóng nến rút râu ngược lại
-            const isLondon = curUtcHour >= 8 && curUtcHour < 14;
+            // Nến phiên London 07:00 - 14:00 UTC (14:00 - 21:00 VN) đón trọn cú lừa Judas Swing mở cửa London
+            const isLondon = curUtcHour >= 7 && curUtcHour < 14;
             const buySweep = isLondon && confirmedBar.low < asianLow && confirmedBar.close >= asianLow && confirmedBar.close > confirmedBar.open;
             const sellSweep = isLondon && confirmedBar.high > asianHigh && confirmedBar.close <= asianHigh && confirmedBar.close < confirmedBar.open;
 
+            const decSweep = confirmedBar.close < 5 ? 5 : (confirmedBar.close < 500 ? 3 : 2);
             return {
               buySignal: buySweep,
               sellSignal: sellSweep,
-              asianHigh: +asianHigh.toFixed(2),
-              asianLow: +asianLow.toFixed(2),
-              session: isLondon ? 'LONDON' : (curUtcHour < 8 ? 'ASIAN' : 'US')
+              asianHigh: +asianHigh.toFixed(decSweep),
+              asianLow: +asianLow.toFixed(decSweep),
+              session: isLondon ? 'LONDON' : (curUtcHour < 7 ? 'ASIAN' : 'US')
             };
           }
 
@@ -2714,25 +2837,18 @@ class TradingDaemon {
 
     for (const asset of this.symbols) {
 
-      // WP-SESSION-FILTER: Khóa phiên cho các tài sản chỉ nên giao dịch trong phiên chính (ví dụ US500, USOIL)
+      // WP-SESSION-FILTER: Khóa phiên cho các tài sản (GOLD, USDJPY, US500...)
       if (asset.sessionFilter?.enabled) {
-        const now = new Date();
-        const vnHour = (now.getUTCHours() + 7) % 24;
-        const vnMinute = now.getUTCMinutes();
-        const totalVnMinutes = vnHour * 60 + vnMinute;
-
-        const startH = asset.sessionFilter.allowedHoursVN?.[0] ?? 19;
-        const endH = asset.sessionFilter.allowedHoursVN?.[asset.sessionFilter.allowedHoursVN.length - 1] ?? 23;
-        const allowedStart = startH * 60 + (asset.sessionFilter.startMinute || 0);
-        const allowedEnd = endH * 60 + (asset.sessionFilter.endMinute || 0);
-
-        const isInSession = allowedStart <= allowedEnd
-          ? (totalVnMinutes >= allowedStart && totalVnMinutes <= allowedEnd)
-          : (totalVnMinutes >= allowedStart || totalVnMinutes <= allowedEnd);
-
-        if (!isInSession) {
-          log(`⏸️ [SESSION FILTER] ${asset.name}: Ngoài khung giờ hoạt động chính (${asset.sessionFilter.description || 'Chỉ giao dịch phiên chính'}). Hiện tại: ${String(vnHour).padStart(2, '0')}:${String(vnMinute).padStart(2, '0')} VN. Bỏ qua để tránh whipsaw phiên Á.`);
+        const sessionCheck = checkSessionFilter(asset.sessionFilter, new Date());
+        if (!sessionCheck.allowed) {
+          if (sessionCheck.reason === 'BLACKOUT_WINDOW') {
+            log(`⏸️ [SESSION FILTER BLACKOUT] ${asset.name}: Rơi vào Vùng Tử Địa [${sessionCheck.desc}] (${sessionCheck.window} VN). Hiện tại: ${sessionCheck.currentTimeVN} VN. Bỏ qua để bảo vệ tài khoản.`);
+          } else {
+            log(`⏸️ [SESSION FILTER] ${asset.name}: Ngoài Khung Giờ Vàng (${sessionCheck.desc}). Hiện tại: ${sessionCheck.currentTimeVN} VN. Bỏ qua.`);
+          }
           continue;
+        } else if (sessionCheck.window) {
+          log(`✨ [SESSION FILTER MATCH] ${asset.name}: Khớp Khung Giờ Vàng [${sessionCheck.desc}] (${sessionCheck.window} VN). Hiện tại: ${sessionCheck.currentTimeVN} VN.`);
         }
       }
 
@@ -2885,9 +3001,12 @@ class TradingDaemon {
 
       // WP-ACTIVE-ENGINES: Tôn trọng cấu hình động cơ hoạt động từ config.json
       const assetEngines = config.activeEngines?.[asset.name] || (
-        asset.name === 'GOLD' ? ["ENGINE_DELTA", "ENGINE_THETA", "ENGINE_BETA", "ENGINE_ALPHA"] :
-        (asset.name === 'USOIL' || asset.name === 'UKOIL') ? ["ENGINE_EPSILON", "ENGINE_BETA"] :
-        ["ENGINE_ZETA", "ENGINE_BETA", "ENGINE_KAPPA", "ENGINE_ALPHA"]
+        asset.name === 'GOLD' ? ["ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"] :
+        asset.name === 'USDJPY' ? ["ENGINE_EPSILON", "ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"] :
+        asset.name === 'BTCUSD' ? ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_OMEGA"] :
+        asset.name === 'GBPUSD' ? ["ENGINE_BETA", "ENGINE_ALPHA"] :
+        asset.name === 'US500' ? ["ENGINE_DELTA", "ENGINE_ALPHA"] :
+        ["ENGINE_BETA", "ENGINE_ALPHA"]
       );
       const allowDelta = assetEngines.includes('ENGINE_DELTA');
       const allowZeta = assetEngines.includes('ENGINE_ZETA');
@@ -3144,16 +3263,19 @@ class TradingDaemon {
 
         const isForex = asset.name.includes('GBP') || asset.name.includes('EUR');
         const decimals = isForex ? 5 : (asset.name.includes('JPY') ? 3 : (close < 500 && asset.name !== 'USOIL' ? 3 : 2));
+        // WP-DYNAMIC-SL: Nâng cấp Đệm Stop Loss Động Theo ATR14 Thực Tế
+        const dynBuffer = calcDynSlBuffer(asset.name, data.utBot?.atr, asset.minAtrBuffer);
         let sl, risk;
         if (signalAction === 'BUY') {
-          sl = +(data.candle.low - asset.minAtrBuffer).toFixed(decimals);
+          sl = +(data.candle.low - dynBuffer).toFixed(decimals);
           risk = +(close - sl).toFixed(decimals);
         } else {
-          sl = +(data.candle.high + asset.minAtrBuffer).toFixed(decimals);
+          sl = +(data.candle.high + dynBuffer).toFixed(decimals);
           risk = +(sl - close).toFixed(decimals);
         }
+        log(`🎯 [DYNAMIC SL BUFFER] ${asset.name}: dynBuffer = ${dynBuffer} (ATR: ${data.utBot?.atr || 'N/A'}, minBuffer: ${asset.minAtrBuffer || 'N/A'}) | SL: ${sl} | Risk: ${risk}`);
 
-        // Tính toán rủi ro phân tầng (Tiered Risk): Hạng 1 Quân Vương nâng lên 5.0% (BTCUSD), Top 2-3 nâng 2.0%, khác 1.0%
+        // Tính toán rủi ro phân tầng (Tiered Risk): Hạng 1 Quân Vương 10.0% (BTCUSD), Hạng 2 5.0%, khác 2.0%
         const riskTier = await this.getStrategyRiskTier(triggeredStrategy, asset.name);
         const riskPercent = riskTier.riskPercent;
         const targetRiskAmount = +(exnessStatus.equity * (riskPercent / 100)).toFixed(2);
@@ -3348,7 +3470,9 @@ module.exports = {
   calcLiquiditySweepFade,
   splitTwinLots,
   calcTwinTakeProfits,
-  calcLockProfitSL
+  calcLockProfitSL,
+  calcDynSlBuffer,
+  checkSessionFilter
 };
 
 if (require.main === module) {

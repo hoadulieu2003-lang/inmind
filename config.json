@@ -71,8 +71,8 @@
   },
   "activeEngines": {
     "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_OMEGA"],
-    "USDJPY": ["ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
-    "GOLD": ["ENGINE_OMEGA", "ENGINE_ALPHA", "ENGINE_BETA"],
+    "USDJPY": ["ENGINE_EPSILON", "ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
+    "GOLD": ["ENGINE_OMEGA", "ENGINE_BETA", "ENGINE_ALPHA"],
     "GBPUSD": ["ENGINE_BETA", "ENGINE_ALPHA"],
     "US500": ["ENGINE_DELTA", "ENGINE_ALPHA"]
   },
@@ -82,9 +82,21 @@
       "exnessSymbol": "XAU/USD",
       "tvSymbol": "TVC:GOLD",
       "watchlistKey": "GOLD",
-      "minAtrBuffer": 3.5,
+      "minAtrBuffer": 4.5,
       "minAdxThreshold": 28.0,
-      "maxSpreadUSD": 0.35
+      "maxSpreadUSD": 0.35,
+      "sessionFilter": {
+        "enabled": true,
+        "allowedWindowsVN": [
+          { "start": "08:00", "end": "09:30", "desc": "Phiên Sáng Hồi Nhịp" },
+          { "start": "14:00", "end": "16:15", "desc": "London Open Judas Sweep" },
+          { "start": "19:30", "end": "22:45", "desc": "New York Prime & London Fix" }
+        ],
+        "blackoutWindowsVN": [
+          { "start": "16:15", "end": "19:30", "desc": "Tử Địa Phân Phối Âu" },
+          { "start": "22:45", "end": "08:00", "desc": "Đêm Muộn Dãn Spread" }
+        ]
+      }
     },
     "BTCUSD": {
       "name": "BTCUSD",
@@ -109,7 +121,19 @@
       "watchlistKey": "USDJPY",
       "minAtrBuffer": 0.15,
       "minAdxThreshold": 20.0,
-      "maxSpreadUSD": 0.03
+      "maxSpreadUSD": 0.03,
+      "sessionFilter": {
+        "enabled": true,
+        "allowedWindowsVN": [
+          { "start": "08:00", "end": "09:30", "desc": "Tokyo Fix Nakane Fade" },
+          { "start": "14:00", "end": "16:30", "desc": "London Judas Sweep Reversal" },
+          { "start": "19:30", "end": "22:30", "desc": "New York Session" }
+        ],
+        "blackoutWindowsVN": [
+          { "start": "10:30", "end": "13:30", "desc": "Nghỉ Trưa Tokyo Tê Liệt" },
+          { "start": "22:30", "end": "08:00", "desc": "Đêm Muộn Dãn Spread" }
+        ]
+      }
     },
     "US500": {
       "name": "US500",
