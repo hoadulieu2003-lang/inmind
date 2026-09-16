@@ -51,6 +51,10 @@ async function ensureChromeCdp() {
     '--user-data-dir=C:\\Users\\game\\AppData\\Local\\Google\\Chrome\\User_Data_Trade',
     '--no-first-run',
     '--no-default-browser-check',
+    '--start-minimized',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
     'https://www.tradingview.com/chart/',
     'https://my.exness.com/webtrading/'
   ];

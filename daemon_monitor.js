@@ -541,7 +541,7 @@ class TradingDaemon {
       ? (this.symbols.find(s => s.name === asset || s.watchlistKey === asset)?.tvSymbol || asset)
       : (asset.tvSymbol || asset.name);
 
-    try { await cdpCall(ws, 'Page.bringToFront'); } catch (e) {}
+    // Chạy ngầm 100% (Silent Mode): Không gọi Page.bringToFront để không chiếm quyền màn hình của Anh
     log(`[TV SWITCH] Chuyển biểu đồ sang ${symbolToSet} qua TradingView Model API...`);
 
     const switchResult = await cdpCall(ws, 'Runtime.evaluate', {
@@ -2387,9 +2387,8 @@ class TradingDaemon {
       if (this.tvTabId) {
         try {
           const wsTV = await openWebSocket(`ws://127.0.0.1:${this.port}/devtools/page/${this.tvTabId}`, 5000);
-          // Bring TradingView tab to front to avoid throttled canvas rendering
-          try { await cdpCall(wsTV, 'Page.bringToFront'); } catch (e) {}
-          await delay(600);
+          // Chụp ảnh ngầm tĩnh (Silent Capture): Không gọi Page.bringToFront để không làm giật cửa sổ của Anh
+          await delay(400);
 
           const tvSnap = await cdpCall(wsTV, 'Page.captureScreenshot', { format: 'png' });
           if (tvSnap?.data) {
@@ -2712,11 +2711,7 @@ class TradingDaemon {
     // 2. Kết nối tới tab TradingView duy nhất
     const ws = await openWebSocket(`ws://127.0.0.1:${this.port}/devtools/page/${this.tvTabId}`, 5000);
 
-    // WP-UNTHROTTLE: Đánh thức tab TradingView và chống Chromium đóng băng renderer khi chạy qua đêm
-    try {
-      await cdpCall(ws, 'Page.bringToFront');
-      await delay(400);
-    } catch (e) {}
+    // Chạy ngầm 100% (Silent Scan): Không gọi Page.bringToFront để không chiếm focus hoặc làm giật cửa sổ của Anh
 
     for (const asset of this.symbols) {
 
