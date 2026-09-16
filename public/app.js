@@ -41,7 +41,7 @@ function startCountdown(seconds) {
 // Fetch Status and Journal
 async function fetchData() {
   try {
-    const TUNNEL_URL = 'https://leading-better-suits-load.trycloudflare.com';
+    const TUNNEL_URL = 'https://teams-superintendent-earlier-core.trycloudflare.com';
     let resStatus = null;
     let resJournal = null;
 

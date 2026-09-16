@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-module.exports = (req, res) => {
+module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -11,7 +11,7 @@ module.exports = (req, res) => {
   }
 
   // 1. Kết nối qua Cloudflare Live Tunnel về trực tiếp máy trạm của Anh
-  const TUNNEL_URL = 'https://leading-better-suits-load.trycloudflare.com';
+  const TUNNEL_URL = 'https://teams-superintendent-earlier-core.trycloudflare.com';
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3000);

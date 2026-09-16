@@ -102,7 +102,10 @@ class RiskManager {
       : equity * (effectiveRiskPercent / 100);
 
     // 4. Tính toán Lot Size: Loss per 1 lot = riskDist * contractSize
-    const rawLot = maxRiskAmount / (riskDist * contractSize);
+    // Đối với cặp tiền có đồng định giá JPY (ví dụ USD/JPY), rủi ro tính theo JPY cần quy đổi về USD bằng cách chia cho entryPrice
+    const isJpyQuote = s.includes('JPY');
+    const lossPerLot = isJpyQuote ? (riskDist * contractSize) / entryPrice : (riskDist * contractSize);
+    const rawLot = maxRiskAmount / lossPerLot;
 
     // Làm tròn theo lotStep (0.01)
     const step = this.config.risk.lotStep || 0.01;
@@ -114,8 +117,10 @@ class RiskManager {
     lotSize = Math.max(this.config.risk.minLotSize || 0.01, Math.min(maxLot, lotSize));
     lotSize = +lotSize.toFixed(2);
 
-    const actualRiskAmount = +(lotSize * riskDist * contractSize).toFixed(2);
-    const potentialReward = +(lotSize * rewardDist * contractSize).toFixed(2);
+    const actualRiskAmount = +(lotSize * lossPerLot).toFixed(2);
+    const potentialReward = isJpyQuote
+      ? +(lotSize * rewardDist * contractSize / entryPrice).toFixed(2)
+      : +(lotSize * rewardDist * contractSize).toFixed(2);
     const decimals = (s.includes('GBP') || s.includes('EUR')) ? 5 : (s.includes('JPY') ? 3 : 2);
 
     return {

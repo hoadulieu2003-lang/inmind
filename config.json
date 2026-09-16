@@ -30,6 +30,8 @@
         "USOIL": 0.05,
         "GBPUSD": 0.0003,
         "GBP/USD": 0.0003,
+        "USDJPY": 0.03,
+        "USD/JPY": 0.03,
         "US500": 0.60
       }
     },
@@ -68,13 +70,14 @@
     "maxAdxThreshold": 28.0,
     "minRiskRewardRatio": 1.5,
     "engines": ["ENGINE_LAMBDA", "ENGINE_OMEGA"],
-    "assets": ["GOLD", "BTCUSD", "USOIL"]
+    "assets": ["GOLD", "BTCUSD", "USOIL", "USDJPY"]
   },
   "activeEngines": {
     "GOLD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "USOIL": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ZETA", "ENGINE_KAPPA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "GBPUSD": ["ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA"],
+    "USDJPY": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_THETA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_LAMBDA", "ENGINE_OMEGA"],
     "US500": ["ENGINE_DELTA", "ENGINE_ALPHA", "ENGINE_THETA"]
   },
   "symbols": {
@@ -117,6 +120,15 @@
       "watchlistKey": "GBPUSD",
       "minAtrBuffer": 0.0015,
       "minAdxThreshold": 22.0
+    },
+    "USDJPY": {
+      "name": "USDJPY",
+      "exnessSymbol": "USD/JPY",
+      "tvSymbol": "FX:USDJPY",
+      "watchlistKey": "USDJPY",
+      "minAtrBuffer": 0.15,
+      "minAdxThreshold": 20.0,
+      "maxSpreadUSD": 0.03
     },
     "US500": {
       "name": "US500",

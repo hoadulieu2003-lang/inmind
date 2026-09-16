@@ -416,6 +416,7 @@ class TradingDaemon {
       { name: 'BTCUSD', exnessSymbol: 'BTC', tvSymbol: 'BITSTAMP:BTCUSD', watchlistKey: 'BTC', minAtrBuffer: 250, utKey: 2, utPeriod: 10 },
       { name: 'USOIL', exnessSymbol: 'USOIL', tvSymbol: 'TVC:USOIL', watchlistKey: 'USOIL', minAtrBuffer: 0.35, utKey: 2, utPeriod: 10 },
       { name: 'GBPUSD', exnessSymbol: 'GBP/USD', tvSymbol: 'FX:GBPUSD', watchlistKey: 'GBPUSD', minAtrBuffer: 0.0015, utKey: 2, utPeriod: 10 },
+      { name: 'USDJPY', exnessSymbol: 'USD/JPY', tvSymbol: 'FX:USDJPY', watchlistKey: 'USDJPY', minAtrBuffer: 0.15, utKey: 2, utPeriod: 10 },
       { name: 'US500', exnessSymbol: 'US500', tvSymbol: 'SP:SPX', watchlistKey: 'SPX', minAtrBuffer: 5.0, utKey: 2, utPeriod: 10 }
     ];
     this.symbols = defaultSymbols.map(s => {
@@ -1403,6 +1404,7 @@ class TradingDaemon {
           if (activePositions.some(r => r.includes('BTC'))) openSymbols.push('BTC');
           if (activePositions.some(r => r.includes('OIL') || r.includes('USOIL') || r.includes('UKOIL'))) openSymbols.push('USOIL');
           if (activePositions.some(r => r.includes('GBP/USD') || r.includes('GBPUSD'))) openSymbols.push('GBP/USD');
+          if (activePositions.some(r => r.includes('USD/JPY') || r.includes('USDJPY') || r.includes('JPY'))) openSymbols.push('USD/JPY');
           if (activePositions.some(r => r.includes('US500') || r.includes('SPX') || r.includes('500'))) openSymbols.push('US500');
 
           // Parse structured open positions with live floating PnL and ticket badge count
@@ -1651,9 +1653,10 @@ class TradingDaemon {
         const isBtc = text.includes('BTC');
         const isOil = text.includes('USOIL') || text.includes('OIL') || text.includes('UKOIL');
         const isGbp = text.includes('GBP/USD') || text.includes('GBPUSD');
+        const isJpy = text.includes('USD/JPY') || text.includes('USDJPY') || text.includes('JPY');
         const isUs500 = text.includes('US500') || text.includes('SPX') || text.includes('500');
 
-        const symbolKey = isGold ? 'GOLD' : (isBtc ? 'BTCUSD' : (isOil ? 'USOIL' : (isGbp ? 'GBPUSD' : (isUs500 ? 'US500' : null))));
+        const symbolKey = isGold ? 'GOLD' : (isBtc ? 'BTCUSD' : (isOil ? 'USOIL' : (isGbp ? 'GBPUSD' : (isJpy ? 'USDJPY' : (isUs500 ? 'US500' : null)))));
         if (!symbolKey) continue;
 
         const parts = text.split(/\s+/);
@@ -1674,7 +1677,7 @@ class TradingDaemon {
         // Tìm lệnh đối ứng trong nhật ký
         const matchedTrade = journalTrades.slice().reverse().find(t => {
           return (t.asset === symbolKey || (t.symbol && t.symbol.includes(symbolKey))) &&
-                 Math.abs(t.entryPrice - openPrice) < (symbolKey === 'BTCUSD' ? 50 : (symbolKey === 'GBPUSD' ? 0.0050 : (symbolKey === 'US500' ? 10.0 : 1.5))) &&
+                 Math.abs(t.entryPrice - openPrice) < (symbolKey === 'BTCUSD' ? 50 : (symbolKey === 'USDJPY' ? 0.05 : (symbolKey === 'GBPUSD' ? 0.0050 : (symbolKey === 'US500' ? 10.0 : 1.5)))) &&
                  !t.status?.includes('WIN') && !t.status?.includes('LOSS') && !t.closed;
         });
 
@@ -1682,15 +1685,15 @@ class TradingDaemon {
         const initialSL = matchedTrade ? matchedTrade.stopLoss : currentSL;
         const riskDist = matchedTrade ? Math.abs(entryPrice - initialSL) : Math.abs(openPrice - (currentSL || (isBuy ? openPrice * 0.99 : openPrice * 1.01)));
 
-        if (!riskDist || riskDist <= (symbolKey === 'GBPUSD' ? 0.0001 : 0.01)) continue;
+        if (!riskDist || riskDist <= (symbolKey === 'USDJPY' ? 0.005 : (symbolKey === 'GBPUSD' ? 0.0001 : 0.01))) continue;
 
         // Tính toán khoảng lợi nhuận hiện tại theo R-multiple
         const priceGain = isBuy ? (currentPrice - entryPrice) : (entryPrice - currentPrice);
         const currentR = +(priceGain / riskDist).toFixed(2);
 
         // Đệm spread để đảm bảo hòa vốn thực tế sau phí
-        const spreadBuffer = beConfig.spreadBufferUSD?.[symbolKey] || (symbolKey === 'GOLD' ? 0.30 : (symbolKey === 'BTCUSD' ? 30.0 : (symbolKey === 'GBPUSD' ? 0.0003 : (symbolKey === 'US500' ? 0.60 : 0.05))));
-        const decimals = symbolKey === 'GBPUSD' ? 5 : (symbolKey === 'USOIL' ? 3 : 2);
+        const spreadBuffer = beConfig.spreadBufferUSD?.[symbolKey] || (symbolKey === 'GOLD' ? 0.30 : (symbolKey === 'BTCUSD' ? 30.0 : (symbolKey === 'USDJPY' ? 0.03 : (symbolKey === 'GBPUSD' ? 0.0003 : (symbolKey === 'US500' ? 0.60 : 0.05)))));
+        const decimals = symbolKey === 'GBPUSD' ? 5 : ((symbolKey === 'USOIL' || symbolKey === 'USDJPY') ? 3 : 2);
 
         // Khóa Lãi Dương +0.5R (Positive Profit-Lock): Nếu thị trường quay đầu vẫn bảo toàn lãi +0.5R
         const lockR = typeof beConfig.lockProfitR === 'number' ? beConfig.lockProfitR : (beConfig.mode === 'PROFIT_LOCK_05R' ? 0.5 : 0.0);
@@ -1796,6 +1799,7 @@ class TradingDaemon {
                    ('${symbol}' === 'BTCUSD' && t.includes('BTC')) ||
                    ('${symbol}' === 'USOIL' && (t.includes('OIL') || t.includes('USOIL'))) ||
                    ('${symbol}' === 'GBPUSD' && (t.includes('GBP') || t.includes('GBP/USD'))) ||
+                   ('${symbol}' === 'USDJPY' && (t.includes('JPY') || t.includes('USD/JPY'))) ||
                    ('${symbol}' === 'US500' && (t.includes('US500') || t.includes('SPX') || t.includes('500')));
           }) || activeRows[${rowIndex}] || activeRows[0];
 
@@ -1945,8 +1949,9 @@ class TradingDaemon {
             const isBtc = text.includes('BTC');
             const isOil = text.includes('USOIL') || text.includes('OIL') || text.includes('UKOIL');
             const isGbp = text.includes('GBP/USD') || text.includes('GBPUSD');
+            const isJpy = text.includes('USD/JPY') || text.includes('USDJPY') || text.includes('JPY');
             const isUs500 = text.includes('US500') || text.includes('SPX') || text.includes('500');
-            const symbol = isGold ? 'GOLD' : (isBtc ? 'BTCUSD' : (isOil ? 'USOIL' : (isGbp ? 'GBPUSD' : (isUs500 ? 'US500' : null))));
+            const symbol = isGold ? 'GOLD' : (isBtc ? 'BTCUSD' : (isOil ? 'USOIL' : (isGbp ? 'GBPUSD' : (isJpy ? 'USDJPY' : (isUs500 ? 'US500' : null)))));
             const parts = text.split(/\\s+/);
             const sideIdx = parts.findIndex(p => ['Buy', 'Sell', 'Mua', 'Bán'].includes(p));
             const lot = sideIdx !== -1 ? parseFloat(parts[sideIdx + 1]) : null;
@@ -1996,9 +2001,9 @@ class TradingDaemon {
         const matchingTrade = allTrades.find(t => 
           (t.positionId === c.ticket || t.position_id === c.ticket) ||
           (t.status === 'OPEN' && 
-           (t.asset === c.symbol || (c.symbol === 'GOLD' && t.asset === 'GOLD') || (c.symbol === 'BTCUSD' && t.asset === 'BTCUSD') || (c.symbol === 'USOIL' && t.asset === 'USOIL') || (c.symbol === 'US500' && t.asset === 'US500')) &&
+           (t.asset === c.symbol || (c.symbol === 'GOLD' && t.asset === 'GOLD') || (c.symbol === 'BTCUSD' && t.asset === 'BTCUSD') || (c.symbol === 'USOIL' && t.asset === 'USOIL') || (c.symbol === 'GBPUSD' && t.asset === 'GBPUSD') || (c.symbol === 'USDJPY' && t.asset === 'USDJPY') || (c.symbol === 'US500' && t.asset === 'US500')) &&
            (!c.lot || Math.abs((t.lotSize || 0) - (c.lot || 0)) < 0.05) &&
-           (!c.openPrice || !t.entryPrice || Math.abs((t.entryPrice || 0) - (c.openPrice || 0)) < (c.symbol === 'BTCUSD' ? 100 : (c.symbol === 'GBPUSD' ? 0.01 : (c.symbol === 'US500' ? 15.0 : 3.0))))
+           (!c.openPrice || !t.entryPrice || Math.abs((t.entryPrice || 0) - (c.openPrice || 0)) < (c.symbol === 'BTCUSD' ? 100 : (c.symbol === 'USDJPY' ? 0.20 : (c.symbol === 'GBPUSD' ? 0.01 : (c.symbol === 'US500' ? 15.0 : 3.0)))))
           )
         );
 
@@ -2329,6 +2334,7 @@ class TradingDaemon {
                 const symMatch = text.includes('${symbol}') || text.includes('${symbol.replace('/', '')}') || 
                                  ('${symbol}' === 'USOIL' && (text.includes('OIL') || text.includes('UKOIL'))) ||
                                  ('${symbol}'.includes('GBP') && text.includes('GBP')) ||
+                                 ('${symbol}'.includes('JPY') && text.includes('JPY')) ||
                                  ('${symbol}'.includes('US500') && (text.includes('US500') || text.includes('500') || text.includes('SPX')));
                 if (symMatch) {
                   const posMatch = text.match(/\\b(5\\d{8,10})\\b/);
@@ -2752,6 +2758,7 @@ class TradingDaemon {
         if (name === 'BTCUSD') return p >= 20000 && p <= 250000;
         if (name === 'USOIL' || name === 'UKOIL') return p >= 30 && p <= 250;
         if (name === 'GBPUSD') return p >= 1.00 && p <= 1.80;
+        if (name === 'USDJPY') return p >= 100.0 && p <= 200.0;
         if (name === 'US500') return p >= 4000 && p <= 12000;
         return true;
       }
@@ -2814,6 +2821,7 @@ class TradingDaemon {
                (asset.name === 'BTCUSD' && text.includes('BTC')) ||
                (asset.name === 'USOIL' && (text.includes('USOIL') || text.includes('OIL') || text.includes('UKOIL'))) ||
                (asset.name === 'GBPUSD' && (text.includes('GBP/USD') || text.includes('GBPUSD'))) ||
+               (asset.name === 'USDJPY' && (text.includes('USD/JPY') || text.includes('USDJPY') || text.includes('JPY'))) ||
                (asset.name === 'US500' && (text.includes('US500') || text.includes('SPX') || text.includes('500')));
       });
 
@@ -3031,6 +3039,49 @@ class TradingDaemon {
             triggeredStrategy = 'ENGINE_ALPHA (UT_BOT)';
           }
         }
+      } else if (asset.name === 'USDJPY') {
+        // USDJPY: ENGINE_DELTA (HalfTrend + ADX) + ENGINE_EPSILON (Asian Range Sweep) + ENGINE_THETA (EMA Pullback) + ENGINE_BETA (CCI Pullback) + ENGINE_ALPHA (UT Bot)
+        if (isBullish) {
+          if (allowDelta && hasDeltaBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'ENGINE_DELTA (HALFTREND_ADX)';
+          } else if (allowEpsilon && hasEpsilonBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'ENGINE_EPSILON (ASIAN_SWEEP)';
+          } else if (allowTheta && allowBeta && hasThetaBuy && hasCciBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'CONFLUENCE_THETA_BETA (EMA_PULLBACK + CCI)';
+          } else if (allowTheta && hasThetaBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'ENGINE_THETA (EMA_PULLBACK)';
+          } else if (allowBeta && hasCciBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'ENGINE_BETA (CCI_PULLBACK)';
+          } else if (allowAlpha && hasUtBotBuy) {
+            signalAction = 'BUY';
+            triggeredStrategy = 'ENGINE_ALPHA (UT_BOT)';
+          }
+        } else {
+          if (allowDelta && hasDeltaSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'ENGINE_DELTA (HALFTREND_ADX)';
+          } else if (allowEpsilon && hasEpsilonSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'ENGINE_EPSILON (ASIAN_SWEEP)';
+          } else if (allowTheta && allowBeta && hasThetaSell && hasCciSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'CONFLUENCE_THETA_BETA (EMA_PULLBACK + CCI)';
+          } else if (allowTheta && hasThetaSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'ENGINE_THETA (EMA_PULLBACK)';
+          } else if (allowBeta && hasCciSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'ENGINE_BETA (CCI_PULLBACK)';
+          } else if (allowAlpha && hasUtBotSell) {
+            signalAction = 'SELL';
+            triggeredStrategy = 'ENGINE_ALPHA (UT_BOT)';
+          }
+        }
       } else if (asset.name === 'US500') {
         // US500: ENGINE_DELTA (HalfTrend + ADX) + ENGINE_ALPHA (UT Bot) + ENGINE_THETA (EMA 9/21 Pullback)
         if (isBullish) {
@@ -3124,8 +3175,7 @@ class TradingDaemon {
           riskPercent: riskPercent,
           entryPrice: close,
           stopLossPrice: sl,
-          takeProfitPrice: testTP,
-          currentSpread: 0.1
+          currentSpread: (asset.name.includes('GBP') || asset.name.includes('EUR')) ? 0.00015 : (asset.name.includes('JPY') ? 0.015 : (asset.name.includes('US500') ? 0.50 : (asset.name.includes('BTC') ? 25.0 : (asset.maxSpreadUSD ? asset.maxSpreadUSD * 0.6 : 0.20))))
         });
 
         if (posPlan.approved) {
