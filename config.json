@@ -3,7 +3,7 @@
   "contractSize": 100,
   "accountCurrency": "USD",
   "risk": {
-    "riskPerTradePercent": 1.0,
+    "riskPerTradePercent": 2.0,
     "maxDailyLossPercent": 20.0,
     "minRiskRewardRatio": 1.0,
     "maxSpreadUSD": 0.50,
@@ -27,7 +27,6 @@
         "XAU/USD": 0.30,
         "BTCUSD": 30.0,
         "BTC": 30.0,
-        "USOIL": 0.05,
         "GBPUSD": 0.0003,
         "GBP/USD": 0.0003,
         "USDJPY": 0.03,
@@ -45,40 +44,37 @@
     "tieredRisk": {
       "enabled": true,
       "rank1Strategy": "ENGINE_DELTA",
-      "rank1RiskPercent": 5.0,
-      "rank1AssetWhitelist": ["BTCUSD", "BTC"],
-      "rank1SecondaryCapPercent": 2.0,
-      "rank2And3Strategies": [
-        "ENGINE_BETA",
-        "ENGINE_THETA"
+      "rank1RiskPercent": 10.0,
+      "rank1AssetWhitelist": ["BTCUSD", "BTC", "USDJPY", "GOLD"],
+      "rank1SecondaryCapPercent": 5.0,
+      "rank2Strategies": [
+        "ENGINE_BETA"
       ],
-      "rank2And3RiskPercent": 2.0,
-      "baseRiskPercent": 1.0,
-      "topRanksAllowed": [1, 2, 3],
-      "topRankRiskPercent": 5.0,
+      "rank2RiskPercent": 5.0,
+      "baseRiskPercent": 2.0,
+      "topRanksAllowed": [1, 2],
+      "topRankRiskPercent": 10.0,
       "topStrategies": [
         "ENGINE_DELTA",
-        "ENGINE_BETA",
-        "ENGINE_THETA"
+        "ENGINE_BETA"
       ]
     }
   },
   "counterTrend": {
     "enabled": true,
     "mode": "LIVE",
-    "riskPercent": 1.0,
+    "riskPercent": 2.0,
     "maxAdxThreshold": 28.0,
     "minRiskRewardRatio": 1.5,
     "engines": ["ENGINE_OMEGA"],
-    "assets": ["GOLD", "BTCUSD", "USOIL", "USDJPY"]
+    "assets": ["GOLD", "BTCUSD", "USDJPY"]
   },
   "activeEngines": {
     "GOLD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_OMEGA"],
-    "USOIL": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_OMEGA"],
-    "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ZETA", "ENGINE_KAPPA", "ENGINE_ALPHA", "ENGINE_OMEGA"],
-    "GBPUSD": ["ENGINE_EPSILON", "ENGINE_BETA", "ENGINE_ALPHA"],
-    "USDJPY": ["ENGINE_DELTA", "ENGINE_EPSILON", "ENGINE_THETA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_OMEGA"],
-    "US500": ["ENGINE_DELTA", "ENGINE_ALPHA", "ENGINE_THETA"]
+    "BTCUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_OMEGA"],
+    "USDJPY": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA", "ENGINE_OMEGA"],
+    "GBPUSD": ["ENGINE_DELTA", "ENGINE_BETA", "ENGINE_ALPHA"],
+    "US500": ["ENGINE_DELTA", "ENGINE_ALPHA"]
   },
   "symbols": {
     "GOLD": {

@@ -414,9 +414,8 @@ class TradingDaemon {
     const defaultSymbols = [
       { name: 'GOLD', exnessSymbol: 'XAU/USD', tvSymbol: 'TVC:GOLD', watchlistKey: 'GOLD', minAtrBuffer: 2.5, utKey: 2, utPeriod: 10 },
       { name: 'BTCUSD', exnessSymbol: 'BTC', tvSymbol: 'BITSTAMP:BTCUSD', watchlistKey: 'BTC', minAtrBuffer: 250, utKey: 2, utPeriod: 10 },
-      { name: 'USOIL', exnessSymbol: 'USOIL', tvSymbol: 'TVC:USOIL', watchlistKey: 'USOIL', minAtrBuffer: 0.35, utKey: 2, utPeriod: 10 },
-      { name: 'GBPUSD', exnessSymbol: 'GBP/USD', tvSymbol: 'FX:GBPUSD', watchlistKey: 'GBPUSD', minAtrBuffer: 0.0015, utKey: 2, utPeriod: 10 },
       { name: 'USDJPY', exnessSymbol: 'USD/JPY', tvSymbol: 'FX:USDJPY', watchlistKey: 'USDJPY', minAtrBuffer: 0.15, utKey: 2, utPeriod: 10 },
+      { name: 'GBPUSD', exnessSymbol: 'GBP/USD', tvSymbol: 'FX:GBPUSD', watchlistKey: 'GBPUSD', minAtrBuffer: 0.0015, utKey: 2, utPeriod: 10 },
       { name: 'US500', exnessSymbol: 'US500', tvSymbol: 'SP:SPX', watchlistKey: 'SPX', minAtrBuffer: 5.0, utKey: 2, utPeriod: 10 }
     ];
     this.symbols = defaultSymbols.map(s => {
@@ -2429,51 +2428,51 @@ class TradingDaemon {
     };
   }
 
-  // WP-TIERED-RISK: Động cơ Quân Vương Hạng 1 (5.0% Vốn chỉ dành cho BTCUSD; Vàng/Dầu khóa trần 2.0%), Top 2-3 (2.0% Vốn), Động cơ khác (1.0% Vốn)
+  // WP-TIERED-RISK: Động cơ Quân Vương Hạng 1 (10.0% Vốn), Top 2 (5.0% Vốn), Còn lại (2.0% Vốn)
   async getStrategyRiskTier(strategy, assetName = '') {
     const tieredRiskCfg = config.risk?.tieredRisk || {
       enabled: true,
       rank1Strategy: 'ENGINE_DELTA',
-      rank1RiskPercent: 5.0,
-      rank1AssetWhitelist: ['BTCUSD', 'BTC'],
-      rank1SecondaryCapPercent: 2.0,
-      rank2And3Strategies: ['ENGINE_BETA', 'ENGINE_THETA'],
-      rank2And3RiskPercent: 2.0,
-      baseRiskPercent: 1.0,
-      topStrategies: ['ENGINE_DELTA', 'ENGINE_BETA', 'ENGINE_THETA']
+      rank1RiskPercent: 10.0,
+      rank1AssetWhitelist: ['BTCUSD', 'BTC', 'USDJPY', 'GOLD'],
+      rank1SecondaryCapPercent: 5.0,
+      rank2Strategies: ['ENGINE_BETA'],
+      rank2RiskPercent: 5.0,
+      baseRiskPercent: 2.0,
+      topStrategies: ['ENGINE_DELTA', 'ENGINE_BETA']
     };
 
     if (!tieredRiskCfg.enabled) {
-      return { rank: 99, riskPercent: config.risk?.riskPerTradePercent || 1.0, title: 'CƠ SỞ 1.0%' };
+      return { rank: 99, riskPercent: config.risk?.riskPerTradePercent || 2.0, title: 'CƠ SỞ 2.0%' };
     }
 
     const stratUpper = (strategy || '').toUpperCase();
     const assetUpper = (assetName || '').toUpperCase();
 
-    // 0. Kiểm tra Động cơ Đánh Lệch Xu Hướng (Counter-Trend Engines: 0.5% Vốn)
+    // 0. Kiểm tra Động cơ Đánh Lệch Xu Hướng (Counter-Trend Engines: 2.0% Vốn)
     if (stratUpper.includes('LAMBDA') || stratUpper.includes('OMEGA') || stratUpper.includes('COUNTER')) {
-      const ctRisk = config.counterTrend?.riskPercent || 0.5;
+      const ctRisk = config.counterTrend?.riskPercent || 2.0;
       return { rank: 5, riskPercent: ctRisk, title: `⚡ ĐÁNH LỆCH XU HƯỚNG (${ctRisk}% VỐN)` };
     }
 
     const rank1Key = (tieredRiskCfg.rank1Strategy || 'ENGINE_DELTA').toUpperCase();
-    const rank23Keys = (tieredRiskCfg.rank2And3Strategies || ['ENGINE_BETA', 'ENGINE_THETA']).map(s => s.toUpperCase());
+    const rank2Keys = (tieredRiskCfg.rank2Strategies || tieredRiskCfg.rank2And3Strategies || ['ENGINE_BETA']).map(s => s.toUpperCase());
 
     const whitelist = (tieredRiskCfg.rank1AssetWhitelist || ['BTCUSD', 'BTC']).map(w => w.toUpperCase());
     const isWhitelistedAsset = assetUpper ? whitelist.some(w => assetUpper.includes(w)) : true;
 
-    // 1. Kiểm tra đối chiếu trực tiếp Rank 1
+    // 1. Kiểm tra đối chiếu trực tiếp Rank 1 (10% cho BTCUSD, 5% cho Phi-BTC)
     if (stratUpper.includes(rank1Key) || stratUpper.includes(rank1Key.replace('ENGINE_', ''))) {
       if (isWhitelistedAsset) {
-        return { rank: 1, riskPercent: tieredRiskCfg.rank1RiskPercent || 5.0, title: '👑 QUÂN VƯƠNG 5.0% (BTCUSD)' };
+        return { rank: 1, riskPercent: tieredRiskCfg.rank1RiskPercent || 10.0, title: `👑 QUÂN VƯƠNG ${tieredRiskCfg.rank1RiskPercent || 10.0}% (BTCUSD)` };
       } else {
-        return { rank: 1, riskPercent: tieredRiskCfg.rank1SecondaryCapPercent || 2.0, title: `🛡️ QUÂN VƯƠNG KHÓA 2.0% (${assetName || 'PHI-BTC'})` };
+        return { rank: 1, riskPercent: tieredRiskCfg.rank1SecondaryCapPercent || 5.0, title: `🛡️ QUÂN VƯƠNG KHÓA ${tieredRiskCfg.rank1SecondaryCapPercent || 5.0}% (${assetName || 'PHI-BTC'})` };
       }
     }
 
-    // 2. Kiểm tra Top 2 & 3
-    if (rank23Keys.some(k => stratUpper.includes(k) || stratUpper.includes(k.replace('ENGINE_', '')))) {
-      return { rank: 2, riskPercent: tieredRiskCfg.rank2And3RiskPercent || 2.0, title: '⚡ TOP 2-3 (2.0%)' };
+    // 2. Kiểm tra Hạng 2 (5.0% Vốn)
+    if (rank2Keys.some(k => stratUpper.includes(k) || stratUpper.includes(k.replace('ENGINE_', '')))) {
+      return { rank: 2, riskPercent: tieredRiskCfg.rank2RiskPercent || 5.0, title: `⚡ HẠNG 2 (${tieredRiskCfg.rank2RiskPercent || 5.0}%)` };
     }
 
     // 3. Dynamic Fallback từ SQLite
@@ -2493,20 +2492,20 @@ class TradingDaemon {
           const topKey = sorted[0][0];
           if (stratUpper.includes(topKey) || topKey.includes(stratUpper.split('(')[0].trim())) {
             if (isWhitelistedAsset) {
-              return { rank: 1, riskPercent: tieredRiskCfg.rank1RiskPercent || 5.0, title: '👑 QUÂN VƯƠNG DYNAMIC 5.0% (BTCUSD)' };
+              return { rank: 1, riskPercent: tieredRiskCfg.rank1RiskPercent || 10.0, title: `👑 QUÂN VƯƠNG DYNAMIC ${tieredRiskCfg.rank1RiskPercent || 10.0}% (BTCUSD)` };
             } else {
-              return { rank: 1, riskPercent: tieredRiskCfg.rank1SecondaryCapPercent || 2.0, title: `🛡️ QUÂN VƯƠNG DYNAMIC KHÓA 2.0% (${assetName || 'PHI-BTC'})` };
+              return { rank: 1, riskPercent: tieredRiskCfg.rank1SecondaryCapPercent || 5.0, title: `🛡️ QUÂN VƯƠNG DYNAMIC KHÓA ${tieredRiskCfg.rank1SecondaryCapPercent || 5.0}% (${assetName || 'PHI-BTC'})` };
             }
           }
-          const top23 = sorted.slice(1, 3).map(e => e[0]);
-          if (top23.some(k => stratUpper.includes(k) || k.includes(stratUpper.split('(')[0].trim()))) {
-            return { rank: 2, riskPercent: tieredRiskCfg.rank2And3RiskPercent || 2.0, title: '⚡ TOP 2-3 DYNAMIC (2.0%)' };
+          const top2 = sorted.slice(1, 2).map(e => e[0]);
+          if (top2.some(k => stratUpper.includes(k) || k.includes(stratUpper.split('(')[0].trim()))) {
+            return { rank: 2, riskPercent: tieredRiskCfg.rank2RiskPercent || 5.0, title: `⚡ HẠNG 2 DYNAMIC (${tieredRiskCfg.rank2RiskPercent || 5.0}%)` };
           }
         }
       }
     } catch (e) {}
 
-    return { rank: 4, riskPercent: tieredRiskCfg.baseRiskPercent || 1.0, title: 'TIÊU CHUẨN 1.0%' };
+    return { rank: 4, riskPercent: tieredRiskCfg.baseRiskPercent || 2.0, title: `TIÊU CHUẨN ${tieredRiskCfg.baseRiskPercent || 2.0}%` };
   }
 
   async checkIsTopRankedStrategy(strategy, assetName = '') {
