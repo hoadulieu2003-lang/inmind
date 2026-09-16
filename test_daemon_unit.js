@@ -325,8 +325,8 @@ async function runTests() {
       takeProfitPrice: 2015,
       currentSpread: 0.2
     });
-    assert('Top 3 (ENGINE_OMEGA) được cấp quyền rủi ro 5.0% vốn khi thuộc Top 3', posOmega.riskPercent === 5.0 && posOmega.actualRiskAmount === 500, `Risk%: ${posOmega.riskPercent}, USD: $${posOmega.actualRiskAmount}`);
-    assert('Top 3 (ENGINE_OMEGA) tính đúng R:R = 1.5 và potentialReward không bị NaN', posOmega.riskRewardRatio === 1.5 && !isNaN(posOmega.potentialReward) && posOmega.potentialReward === 750, `RR: ${posOmega.riskRewardRatio}, Reward: $${posOmega.potentialReward}`);
+    assert('Động cơ Lệch Xu Hướng (ENGINE_OMEGA) áp dụng đúng rủi ro 2.0% vốn', posOmega.riskPercent === 2.0 && posOmega.actualRiskAmount === 200, `Risk%: ${posOmega.riskPercent}, USD: $${posOmega.actualRiskAmount}`);
+    assert('Động cơ Lệch Xu Hướng (ENGINE_OMEGA) tính đúng R:R = 1.5 và potentialReward không bị NaN', posOmega.riskRewardRatio === 1.5 && !isNaN(posOmega.potentialReward) && posOmega.potentialReward === 300, `RR: ${posOmega.riskRewardRatio}, Reward: $${posOmega.potentialReward}`);
 
     const posTheta = riskManager.calculatePosition({
       symbol: 'GOLD',
@@ -348,7 +348,7 @@ async function runTests() {
       takeProfitPrice: 2015,
       currentSpread: 0.2
     });
-    assert('Động cơ Counter-Trend ngoài Top 3 (ENGINE_LAMBDA) áp dụng rủi ro 2.0% vốn', posLambda.riskPercent === 2.0 && posLambda.actualRiskAmount === 200, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
+    assert('Động cơ Counter-Trend (ENGINE_LAMBDA) áp dụng rủi ro 2.0% vốn', posLambda.riskPercent === 2.0 && posLambda.actualRiskAmount === 200, `Risk%: ${posLambda.riskPercent}, USD: $${posLambda.actualRiskAmount}`);
 
     // Kiểm tra checkIsTopRankedStrategy trên TradingDaemon
     const isDeltaTop = await daemon.checkIsTopRankedStrategy('ENGINE_DELTA (HALFTREND_ADX)', 'BTCUSD');
@@ -357,7 +357,7 @@ async function runTests() {
     const isOmegaTop = await daemon.checkIsTopRankedStrategy('ENGINE_OMEGA (LIQUIDITY_SWEEP)');
     const isThetaTop = await daemon.checkIsTopRankedStrategy('ENGINE_THETA (EMA_PULLBACK)');
     const isUnknownTop = await daemon.checkIsTopRankedStrategy('ENGINE_UNKNOWN');
-    assert('TradingDaemon.checkIsTopRankedStrategy nhận diện đúng Top 1-3 và từ chối ngoài Top 3', isDeltaTop === true && isBetaTop === true && isAlphaTop === true && isOmegaTop === true && isThetaTop === false && isUnknownTop === false, `Delta: ${isDeltaTop}, Beta: ${isBetaTop}, Alpha: ${isAlphaTop}, Omega: ${isOmegaTop}, Theta: ${isThetaTop}, Unknown: ${isUnknownTop}`);
+    assert('TradingDaemon.checkIsTopRankedStrategy nhận diện đúng Top 1-3 (Delta, Beta, Alpha) và tách biệt Omega/Theta', isDeltaTop === true && isBetaTop === true && isAlphaTop === true && isOmegaTop === false && isThetaTop === false && isUnknownTop === false, `Delta: ${isDeltaTop}, Beta: ${isBetaTop}, Alpha: ${isAlphaTop}, Omega: ${isOmegaTop}, Theta: ${isThetaTop}, Unknown: ${isUnknownTop}`);
   }
 
   // TEST 7: Kiểm tra Timing Nến Đã Chốt (WP-03)

@@ -2697,7 +2697,7 @@ class TradingDaemon {
     };
   }
 
-  // WP-TIERED-RISK: Động cơ Quân Vương Hạng 1 (10.0% Vốn), Top 2 (5.0% Vốn), Top 3 (5.0% Vốn), Còn lại (2.0% Vốn)
+  // WP-TIERED-RISK: Động cơ Quân Vương Hạng 1 (10.0% Vốn), Top 2 (5.0% Vốn), Top 3 (5.0% Vốn), Đánh Lệch Xu Hướng (2.0% Vốn), Còn lại (2.0% Vốn)
   async getStrategyRiskTier(strategy, assetName = '') {
     const tieredRiskCfg = config.risk?.tieredRisk || {
       enabled: true,
@@ -2707,22 +2707,28 @@ class TradingDaemon {
       rank1SecondaryCapPercent: 5.0,
       rank2Strategies: ['ENGINE_BETA'],
       rank2RiskPercent: 5.0,
-      rank3Strategies: ['ENGINE_ALPHA', 'ENGINE_OMEGA'],
+      rank3Strategies: ['ENGINE_ALPHA'],
       rank3RiskPercent: 5.0,
       baseRiskPercent: 2.0,
-      topStrategies: ['ENGINE_DELTA', 'ENGINE_BETA', 'ENGINE_ALPHA', 'ENGINE_OMEGA']
+      topStrategies: ['ENGINE_DELTA', 'ENGINE_BETA', 'ENGINE_ALPHA']
     };
+
+    const stratUpper = (strategy || '').toUpperCase();
+    const assetUpper = (assetName || '').toUpperCase();
+
+    // 0. Động cơ Đánh Lệch Xu Hướng (Counter-Trend: ENGINE_OMEGA, ENGINE_LAMBDA) -> Khóa cứng 2.0% Vốn
+    if (stratUpper.includes('LAMBDA') || stratUpper.includes('OMEGA') || stratUpper.includes('COUNTER')) {
+      const ctRisk = config.counterTrend?.riskPercent || 2.0;
+      return { rank: 'CT', riskPercent: ctRisk, title: `⚡ LỆCH XU HƯỚNG (${ctRisk}%)` };
+    }
 
     if (!tieredRiskCfg.enabled) {
       return { rank: 99, riskPercent: config.risk?.riskPerTradePercent || 2.0, title: 'CƠ SỞ 2.0%' };
     }
 
-    const stratUpper = (strategy || '').toUpperCase();
-    const assetUpper = (assetName || '').toUpperCase();
-
     const rank1Key = (tieredRiskCfg.rank1Strategy || 'ENGINE_DELTA').toUpperCase();
     const rank2Keys = (tieredRiskCfg.rank2Strategies || ['ENGINE_BETA']).map(s => s.toUpperCase());
-    const rank3Keys = (tieredRiskCfg.rank3Strategies || ['ENGINE_ALPHA', 'ENGINE_OMEGA']).map(s => s.toUpperCase());
+    const rank3Keys = (tieredRiskCfg.rank3Strategies || ['ENGINE_ALPHA']).map(s => s.toUpperCase());
     const rank2And3Keys = (tieredRiskCfg.rank2And3Strategies || []).map(s => s.toUpperCase());
 
     const whitelist = (tieredRiskCfg.rank1AssetWhitelist || ['BTCUSD', 'BTC']).map(w => w.toUpperCase());

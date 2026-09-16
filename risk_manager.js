@@ -68,17 +68,25 @@ class RiskManager {
       };
     }
 
-    // 3. Tính số tiền rủi ro tối đa (Tiered Risk 2.0% cho Top 1-3, hoặc 1.0% cơ sở, hoặc riskAmount truyền vào)
+    // 3. Tính số tiền rủi ro tối đa (Đánh Lệch Xu Hướng 2.0%, Tiered Risk cho Top 1-3, hoặc riskAmount truyền vào)
     let effectiveRiskPercent = (typeof riskPercent === 'number' && riskPercent > 0) ? riskPercent : null;
     if (!effectiveRiskPercent && (typeof riskAmount === 'number' && riskAmount > 0) && (typeof equity === 'number' && equity > 0)) {
       effectiveRiskPercent = +((riskAmount / equity) * 100).toFixed(2);
     }
+    // Ưu tiên 1: Đánh lệch xu hướng (Counter-Trend: ENGINE_OMEGA, ENGINE_LAMBDA) khóa cứng theo counterTrend.riskPercent (2.0% vốn)
+    if (!effectiveRiskPercent && strategy) {
+      const sUpper = strategy.toUpperCase();
+      if (sUpper.includes('LAMBDA') || sUpper.includes('OMEGA') || sUpper.includes('COUNTER')) {
+        effectiveRiskPercent = this.config.counterTrend?.riskPercent || 2.0;
+      }
+    }
+    // Ưu tiên 2: Phân tầng rủi ro thuận xu hướng (Tiered Risk cho Top 1-3)
     if (!effectiveRiskPercent && strategy && this.config.risk?.tieredRisk?.enabled) {
       const tiered = this.config.risk.tieredRisk;
       const sUpper = strategy.toUpperCase();
       const rank1Key = (tiered.rank1Strategy || 'ENGINE_DELTA').toUpperCase();
       const rank2List = (tiered.rank2Strategies || ['ENGINE_BETA']).map(k => k.toUpperCase());
-      const rank3List = (tiered.rank3Strategies || ['ENGINE_ALPHA', 'ENGINE_OMEGA']).map(k => k.toUpperCase());
+      const rank3List = (tiered.rank3Strategies || ['ENGINE_ALPHA']).map(k => k.toUpperCase());
       const rank2And3List = (tiered.rank2And3Strategies || []).map(k => k.toUpperCase());
 
       if (sUpper.includes(rank1Key) || sUpper.includes(rank1Key.replace('ENGINE_', ''))) {
@@ -90,12 +98,6 @@ class RiskManager {
       } else if (rank3List.some(k => sUpper.includes(k) || sUpper.includes(k.replace('ENGINE_', ''))) ||
                  rank2And3List.some(k => sUpper.includes(k) || sUpper.includes(k.replace('ENGINE_', '')))) {
         effectiveRiskPercent = tiered.rank3RiskPercent || tiered.rank2And3RiskPercent || 5.0;
-      }
-    }
-    if (!effectiveRiskPercent && strategy) {
-      const sUpper = strategy.toUpperCase();
-      if (sUpper.includes('LAMBDA') || sUpper.includes('OMEGA') || sUpper.includes('COUNTER')) {
-        effectiveRiskPercent = this.config.counterTrend?.riskPercent || 2.0;
       }
     }
     if (!effectiveRiskPercent) {

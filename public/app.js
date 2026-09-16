@@ -1052,7 +1052,7 @@ function renderStrategyLeaderboard() {
         <span class="rank-badge" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE;">⚡ LỆCH XU HƯỚNG</span>
         <div style="margin-top: 4px;">
           <span class="badge-tag" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE; font-size:10px; font-weight:700; display:inline-flex; align-items:center; gap:2px; padding:2px 6px; white-space:nowrap;">
-            ⚡ Rủi ro: 0.5% Vốn
+            ⚡ Rủi ro: 2.0% Vốn
           </span>
         </div>
       `;
@@ -1075,7 +1075,7 @@ function renderStrategyLeaderboard() {
       recommendation = `<strong class="text-muted">Đã loại khỏi config.json</strong> • Bảo toàn vốn an toàn`;
     } else if (s.key.includes('LAMBDA') || s.key.includes('OMEGA') || s.key.includes('COUNTER')) {
       statusPill = `<span class="status-pill" style="background:#EEF2FF; color:#4338CA; border:1px solid #C7D2FE;">⚡ LỆCH XU HƯỚNG</span>`;
-      recommendation = `<strong class="text-blue">⚡ Đánh lệch xu hướng (0.5% Vốn)</strong> • Bắt đỉnh/đáy kiệt sức`;
+      recommendation = `<strong class="text-blue">⚡ Đánh lệch xu hướng (2.0% Vốn)</strong> • Bắt đỉnh/đáy kiệt sức`;
     } else if (rank === 1 && s.netPnl > 0) {
       statusPill = `<span class="status-pill champion">👑 QUÂN VƯƠNG</span>`;
       recommendation = `<strong class="text-green">👑 Quyền nâng 10.0% Vốn (BTCUSD) | Khóa 5.0% Vốn (Phi-BTC)</strong> • Động cơ số 1`;

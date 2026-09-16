@@ -55,8 +55,7 @@
       ],
       "rank2RiskPercent": 5.0,
       "rank3Strategies": [
-        "ENGINE_ALPHA",
-        "ENGINE_OMEGA"
+        "ENGINE_ALPHA"
       ],
       "rank3RiskPercent": 5.0,
       "baseRiskPercent": 2.0,
@@ -69,8 +68,7 @@
       "topStrategies": [
         "ENGINE_DELTA",
         "ENGINE_BETA",
-        "ENGINE_ALPHA",
-        "ENGINE_OMEGA"
+        "ENGINE_ALPHA"
       ]
     }
   },

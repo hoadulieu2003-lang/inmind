@@ -1,12 +1,12 @@
 {
   "daemonActive": true,
-  "lastHeartbeatTime": 1789541109010,
-  "lastHeartbeatStr": "13:45:09",
-  "equity": 10758.16,
+  "lastHeartbeatTime": 1789541435545,
+  "lastHeartbeatStr": "13:50:35",
+  "equity": 10718.38,
   "balance": 11001.16,
   "initialBalance": 9388.75,
-  "netPnL": 1369.41,
-  "roi": 14.59,
+  "netPnL": 1329.63,
+  "roi": 14.16,
   "today": {
     "date": "2026-09-16",
     "dateLabel": "16/09/2026",
@@ -26,10 +26,10 @@
   },
   "allTime": {
     "initialBalance": 9388.75,
-    "equity": 10758.16,
+    "equity": 10718.38,
     "balance": 11001.16,
-    "netPnL": 1369.41,
-    "roi": 14.59,
+    "netPnL": 1329.63,
+    "roi": 14.16,
     "winRate": 61.7,
     "wins": 29,
     "losses": 18,
@@ -50,8 +50,8 @@
       "side": "Sell",
       "lot": 1,
       "openPrice": 75630.06,
-      "currentPrice": 75873.06,
-      "floatingPnl": -243,
+      "currentPrice": 75912.84,
+      "floatingPnl": -282.78,
       "ticketCount": 2,
       "layersCount": 1,
       "isProfitLocked": false,
@@ -60,10 +60,10 @@
       "lockedProfitUSD": null
     }
   ],
-  "freeMargin": 10569.08,
-  "marginLevel": 5689.74,
-  "lastScanTime": "13:45:08",
-  "nextScanSeconds": 896,
+  "freeMargin": 10529.3,
+  "marginLevel": 5668.7,
+  "lastScanTime": "13:50:28",
+  "nextScanSeconds": 569,
   "twinOrders": {
     "enabled": true,
     "scalperRR": 1,
@@ -87,8 +87,7 @@
     ],
     "rank2RiskPercent": 5,
     "rank3Strategies": [
-      "ENGINE_ALPHA",
-      "ENGINE_OMEGA"
+      "ENGINE_ALPHA"
     ],
     "rank3RiskPercent": 5,
     "baseRiskPercent": 2,
@@ -101,8 +100,7 @@
     "topStrategies": [
       "ENGINE_DELTA",
       "ENGINE_BETA",
-      "ENGINE_ALPHA",
-      "ENGINE_OMEGA"
+      "ENGINE_ALPHA"
     ]
   },
   "activeEngines": {
