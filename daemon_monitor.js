@@ -540,6 +540,7 @@ class TradingDaemon {
       ? (this.symbols.find(s => s.name === asset || s.watchlistKey === asset)?.tvSymbol || asset)
       : (asset.tvSymbol || asset.name);
 
+    try { await cdpCall(ws, 'Page.bringToFront'); } catch (e) {}
     log(`[TV SWITCH] Chuyển biểu đồ sang ${symbolToSet} qua TradingView Model API...`);
 
     const switchResult = await cdpCall(ws, 'Runtime.evaluate', {
@@ -2704,6 +2705,12 @@ class TradingDaemon {
 
     // 2. Kết nối tới tab TradingView duy nhất
     const ws = await openWebSocket(`ws://127.0.0.1:${this.port}/devtools/page/${this.tvTabId}`, 5000);
+
+    // WP-UNTHROTTLE: Đánh thức tab TradingView và chống Chromium đóng băng renderer khi chạy qua đêm
+    try {
+      await cdpCall(ws, 'Page.bringToFront');
+      await delay(400);
+    } catch (e) {}
 
     for (const asset of this.symbols) {
 
