@@ -775,6 +775,8 @@ function renderStrategyLeaderboard() {
     else if (stratRaw.includes('ENGINE_ZETA')) { canonicalKey = 'ENGINE_ZETA'; cleanName = 'ENGINE ZETA (SuperTrend + RSI)'; }
     else if (stratRaw.includes('ENGINE_KAPPA')) { canonicalKey = 'ENGINE_KAPPA'; cleanName = 'ENGINE KAPPA (Volume PA)'; }
     else if (stratRaw.includes('ENGINE_GAMMA')) { canonicalKey = 'ENGINE_GAMMA'; cleanName = 'ENGINE GAMMA (TTM Squeeze)'; }
+    else if (stratRaw.includes('ENGINE_OMEGA')) { canonicalKey = 'ENGINE_OMEGA'; cleanName = 'ENGINE OMEGA (SMC Liquidity Sweep)'; }
+    else if (stratRaw.includes('ENGINE_LAMBDA')) { canonicalKey = 'ENGINE_LAMBDA'; cleanName = 'ENGINE LAMBDA (RSI Div + BB Extreme)'; }
     else { canonicalKey = stratRaw.split('[')[0].trim(); cleanName = canonicalKey; }
 
     const isShadow = !!trade.isShadow || stratRaw.includes('SHADOW');
@@ -833,13 +835,14 @@ function renderStrategyLeaderboard() {
   const isEngineCurrentlyActive = (stratKey, assetSet) => {
     if (!currentStatus || !currentStatus.activeEngines) return true;
     const activeEnginesObj = currentStatus.activeEngines;
+    const cleanKey = (stratKey || '').split('(')[0].trim().toUpperCase();
     if (assetSet && assetSet.size > 0) {
       for (const a of assetSet) {
         const list = activeEnginesObj[a] || (a === 'BTC' ? activeEnginesObj['BTCUSD'] : (a === 'USOIL' ? activeEnginesObj['USOIL'] : null));
-        if (Array.isArray(list) && list.includes(stratKey)) return true;
+        if (Array.isArray(list) && list.some(k => k.toUpperCase().includes(cleanKey) || cleanKey.includes(k.toUpperCase()))) return true;
       }
     }
-    return Object.values(activeEnginesObj).some(arr => Array.isArray(arr) && arr.includes(stratKey));
+    return Object.values(activeEnginesObj).some(arr => Array.isArray(arr) && arr.some(k => k.toUpperCase().includes(cleanKey) || cleanKey.includes(k.toUpperCase())));
   };
 
   const stratList = Object.values(strategyMap).map(s => {
